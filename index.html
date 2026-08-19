@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
 <title>קופי פייסט</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B0E14'/%3E%3Crect x='9' y='13' width='34' height='34' rx='8' fill='none' stroke='%2300E5C7' stroke-width='4' opacity='0.45'/%3E%3Crect x='20' y='18' width='34' height='34' rx='8' fill='none' stroke='%2300E5C7' stroke-width='4'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -17,6 +18,7 @@
     --muted:#8A93A6;
     --accent:#00E5C7;
     --accent-dim:#0A3B36;
+    --go:#22C55E;
     --warn:#FFB020;
     --bad:#FF3B5C;
     --radius:18px;
@@ -44,8 +46,14 @@
     position:absolute; inset:0; border:2px solid var(--accent); border-radius:7px;
   }
   .brand-copies span:first-child{ transform:translate(4px,4px); opacity:.45; }
+  .brand-copies.sm{ width:22px; height:22px; }
+  .brand-copies.sm span:first-child{ transform:translate(3px,3px); }
   .brand-title{ font-size:22px; font-weight:700; }
   .brand-sub{ font-size:11px; color:var(--muted); margin-top:1px; }
+  .footer-credit{
+    text-align:center; font-size:11px; color:var(--muted); padding:18px 0 6px; display:flex;
+    align-items:center; justify-content:center; gap:6px;
+  }
   .icon-btn{
     width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:var(--bg-elev);
     color:var(--text); display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer;
@@ -108,8 +116,11 @@
 
   .camera-wrap{
     position:relative; width:100%; aspect-ratio:3/4; background:#000; border-radius:var(--radius);
-    overflow:hidden; border:1px solid var(--line); margin-bottom:16px;
+    overflow:hidden; border:1px solid var(--line); margin-bottom:16px; transition:box-shadow .15s;
   }
+  .camera-wrap.state-ready{ box-shadow:0 0 0 4px var(--warn) inset; }
+  .camera-wrap.state-go{ box-shadow:0 0 0 4px var(--go) inset; }
+  .camera-wrap.state-stop{ box-shadow:0 0 0 4px var(--bad) inset; }
   .camera-wrap video, .camera-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
   .cam-flip{
     position:absolute; top:12px; left:12px; z-index:3; width:38px; height:38px; border-radius:50%;
@@ -181,9 +192,16 @@
   .compare-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
   .compare-col{ }
   .compare-tag{ font-size:11px; color:var(--muted); font-weight:700; margin-bottom:6px; text-align:center; }
-  .compare-canvas-wrap{ position:relative; width:100%; aspect-ratio:3/4; background:#000; border-radius:14px; overflow:hidden; border:1px solid var(--line); }
+  .compare-canvas-wrap{ position:relative; width:100%; aspect-ratio:3/4; background:#000; border-radius:14px; overflow:hidden; border:1px solid var(--line); cursor:zoom-in; }
   .compare-canvas-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; }
   .compare-canvas-wrap.ref{ border-color:var(--accent-dim); }
+
+  .zoom-overlay{
+    position:fixed; inset:0; background:rgba(4,6,10,.94); z-index:70; display:none;
+    align-items:center; justify-content:center; padding:24px; cursor:zoom-out;
+  }
+  .zoom-overlay.show{ display:flex; }
+  .zoom-overlay canvas{ max-width:100%; max-height:100%; border-radius:16px; border:1px solid var(--line); }
 
   .scrub-row{ display:flex; align-items:center; gap:10px; margin:6px 0 18px; }
   .play-btn{
@@ -261,13 +279,21 @@
     <div class="section-label">תנועות לדוגמה שמורות</div>
     <div class="ref-list" id="refList"></div>
     <div class="empty-state" id="emptyState">עדיין אין תנועות לדוגמה. הקליטו את הראשונה ⬆</div>
+
+    <div class="footer-credit">
+      <div class="brand-copies sm"><span></span><span></span></div>
+      קופי פייסט · Ki Me Kan Karate
+    </div>
   </section>
 
   <!-- ===================== CAPTURE ===================== -->
   <section class="screen" id="screen-capture">
     <div class="cap-header">
       <button class="icon-btn" id="btnBackFromCapture">→</button>
-      <div class="cap-title" id="capTitle">הקלטת תנועה לדוגמה</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="brand-copies sm"><span></span><span></span></div>
+        <div class="cap-title" id="capTitle">הקלטת תנועה לדוגמה</div>
+      </div>
       <div class="cap-mode-pill" id="capModePill">לדוגמה</div>
     </div>
 
@@ -307,7 +333,10 @@
   <section class="screen" id="screen-result">
     <div class="cap-header">
       <button class="icon-btn" id="btnBackFromResult">→</button>
-      <div class="cap-title">תוצאה</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="brand-copies sm"><span></span><span></span></div>
+        <div class="cap-title">תוצאה</div>
+      </div>
       <div style="width:40px;"></div>
     </div>
 
@@ -319,11 +348,11 @@
     <div class="compare-grid">
       <div class="compare-col">
         <div class="compare-tag">לדוגמה</div>
-        <div class="compare-canvas-wrap ref"><canvas id="refCanvas"></canvas></div>
+        <div class="compare-canvas-wrap ref" id="refCanvasWrap"><canvas id="refCanvas"></canvas></div>
       </div>
       <div class="compare-col">
         <div class="compare-tag">הביצוע שלך</div>
-        <div class="compare-canvas-wrap"><canvas id="stuCanvas"></canvas></div>
+        <div class="compare-canvas-wrap" id="stuCanvasWrap"><canvas id="stuCanvas"></canvas></div>
       </div>
     </div>
 
@@ -353,6 +382,10 @@
       </div>
       <div class="modal-body" id="correctionsList"></div>
     </div>
+  </div>
+
+  <div class="zoom-overlay" id="zoomOverlay">
+    <canvas id="zoomCanvas"></canvas>
   </div>
 
   <video id="refPlayerVideo" class="hidden-video" muted playsinline></video>
@@ -798,6 +831,44 @@ function buildCorrections(refFrames, stuFrames, path){
   return [...orderIssues, ...(endpointIssue?[endpointIssue]:[]), ...relIssues];
 }
 
+/* ===================== MOTION-WINDOW AUTO-DETECTION =====================
+   Recordings rarely start/end exactly on the movement itself - there is
+   usually a moment of standing still before and after. Trimming both
+   sequences down to their real "moving" window (independently) means the
+   comparison starts from the same effective starting pose instead of
+   whatever idle stance happened to be recorded first. */
+function findMotionStart(frames, threshold){
+  threshold = threshold || 12;
+  const vecs = frames.map(f => frameVector(f.angles));
+  const baseIdx = vecs.findIndex(v => v.some(x=>x!=null));
+  if(baseIdx === -1) return 0;
+  const base = vecs[baseIdx];
+  for(let i=baseIdx; i<vecs.length; i++){
+    if(!vecs[i].some(x=>x!=null)) continue;
+    if(frameDist(vecs[i], base) > threshold) return Math.max(0, i-1);
+  }
+  return baseIdx;
+}
+function findMotionEnd(frames, threshold){
+  threshold = threshold || 12;
+  const vecs = frames.map(f => frameVector(f.angles));
+  let lastIdx = -1;
+  for(let i=vecs.length-1; i>=0; i--){ if(vecs[i].some(x=>x!=null)){ lastIdx=i; break; } }
+  if(lastIdx === -1) return frames.length-1;
+  const base = vecs[lastIdx];
+  for(let i=lastIdx; i>=0; i--){
+    if(!vecs[i].some(x=>x!=null)) continue;
+    if(frameDist(vecs[i], base) > threshold) return Math.min(frames.length-1, i+1);
+  }
+  return lastIdx;
+}
+function trimToMotion(frames){
+  const start = findMotionStart(frames);
+  const end = findMotionEnd(frames);
+  if(end <= start || (end-start) < 3) return frames; // degenerate window, keep everything
+  return frames.slice(start, end+1);
+}
+
 /* ===================== SKELETON DRAWING ===================== */
 function drawSkeleton(ctx, landmarks, stepDev, w, h, isReference){
   if(!landmarks) return;
@@ -892,6 +963,7 @@ document.getElementById('btnFlipCam').addEventListener('click', () => {
 
 function resetCaptureUI(){
   recState = 'idle';
+  if(typeof setCamState === 'function') setCamState(null);
   liveVideo.style.display='block';
   document.getElementById('previewCanvas').style.display='none';
   liveControls.style.display='block';
@@ -935,19 +1007,57 @@ document.getElementById('btnBackFromResult').addEventListener('click', () => {
   showScreen('home');
 });
 
-/* ---- Recording flow with 3-2-1 countdown + 6s auto stop ---- */
+/* ---- Beep tones (Web Audio, no external files) ---- */
+let audioCtx = null;
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq, duration, type, vol, delay){
+  delay = delay || 0;
+  setTimeout(() => {
+    try{
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.value = vol != null ? vol : 0.35;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.stop(ctx.currentTime + duration + 0.02);
+    }catch(e){ /* audio unavailable */ }
+  }, delay);
+}
+function playTick(){ beep(720, 0.09, 'sine', 0.25); }
+function playStartSound(){ beep(1046, 0.16, 'sine', 0.45); beep(1568, 0.18, 'sine', 0.35, 90); }
+function playEndSound(){ beep(300, 0.22, 'sawtooth', 0.3); beep(180, 0.28, 'sawtooth', 0.28, 130); }
+
+const cameraWrap = document.getElementById('cameraWrap');
+function setCamState(state){
+  cameraWrap.classList.remove('state-ready','state-go','state-stop');
+  if(state) cameraWrap.classList.add('state-'+state);
+}
+
+/* ---- Recording flow: yellow (get ready) -> green+sound (go) -> red+sound (time's up) ---- */
 let recState = 'idle'; // 'idle' | 'counting' | 'recording'
 btnRecord.addEventListener('click', async () => {
   if(recState === 'idle'){
     recState = 'counting';
+    setCamState('ready');
     countdownNum.style.display='flex';
     for(const n of ['3','2','1']){
       countdownNum.textContent = n;
+      playTick();
       await new Promise(r=>setTimeout(r, 700));
     }
     countdownNum.style.display='none';
     if(recState !== 'counting') return; // cancelled mid-countdown
+    setCamState('go');
+    playStartSound();
     beginRecording();
+    setTimeout(() => { if(recState === 'recording') setCamState(null); }, 400);
   } else if(recState === 'recording'){
     stopRecording();
   }
@@ -981,7 +1091,15 @@ function stopRecording(){
   clearInterval(recordTimer);
   timerBadge.classList.remove('show');
   btnRecord.classList.remove('recording');
+  const wasRecording = recState === 'recording';
   recState = 'idle';
+  if(wasRecording){
+    setCamState('stop');
+    playEndSound();
+    setTimeout(() => setCamState(null), 500);
+  } else {
+    setCamState(null);
+  }
 }
 
 function onRecordingStopped(){
@@ -1000,6 +1118,7 @@ function onRecordingStopped(){
 
 document.getElementById('btnRetake').addEventListener('click', () => {
   recState = 'idle';
+  setCamState(null);
   resetCaptureUI();
   liveVideo.src = '';
   startCamera();
@@ -1100,13 +1219,14 @@ async function runComparison(refRecord, stuBlob){
   const stuData = await extractFrames(stuBlob, (p)=>{ procPct.textContent = Math.round(p*100)+'%'; });
 
   procText.textContent = 'משווה לתנועה לדוגמה…';
-  const { path } = dtw(refRecord.frames, stuData.frames);
-  const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refRecord.frames, stuData.frames);
-  const corrections = buildCorrections(refRecord.frames, stuData.frames, path);
+  const refFrames = trimToMotion(refRecord.frames);
+  const stuFrames = trimToMotion(stuData.frames);
+  const { path } = dtw(refFrames, stuFrames);
+  const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refFrames, stuFrames);
+  const corrections = buildCorrections(refFrames, stuFrames, path);
 
   analysis = {
-    refFrames: refRecord.frames,
-    stuFrames: stuData.frames,
+    refFrames, stuFrames,
     refDuration: refRecord.duration,
     stuDuration: stuData.duration,
     path, score, perJointAvg, perStepDeviation, corrections,
@@ -1129,6 +1249,23 @@ const scrubRange = document.getElementById('scrubRange');
 const btnPlay = document.getElementById('btnPlay');
 const scoreNum = document.getElementById('scoreNum');
 const legendRow = document.getElementById('legendRow');
+
+/* ---- Tap either video to zoom just that one ---- */
+let zoomedSide = null;
+const zoomOverlay = document.getElementById('zoomOverlay');
+const zoomCanvas = document.getElementById('zoomCanvas');
+const zoomCtx = zoomCanvas.getContext('2d');
+function openZoom(side){
+  zoomedSide = side;
+  const src = side === 'ref' ? refCanvas : stuCanvas;
+  zoomCanvas.width = src.width; zoomCanvas.height = src.height;
+  zoomCtx.drawImage(src, 0, 0);
+  zoomOverlay.classList.add('show');
+}
+function closeZoom(){ zoomedSide = null; zoomOverlay.classList.remove('show'); }
+zoomOverlay.addEventListener('click', closeZoom);
+document.getElementById('refCanvasWrap').addEventListener('click', () => openZoom('ref'));
+document.getElementById('stuCanvasWrap').addEventListener('click', () => openZoom('stu'));
 
 let playing = false, playIndex = 0, playTimer = null;
 
@@ -1208,6 +1345,12 @@ async function renderStep(idx){
   stuCtx.drawImage(stuPlayerVideo, 0,0, stuCanvas.width, stuCanvas.height);
   drawSkeleton(stuCtx, stuF.landmarks, analysis.perStepDeviation[idx], stuCanvas.width, stuCanvas.height, false);
 
+  if(zoomedSide){
+    const src = zoomedSide === 'ref' ? refCanvas : stuCanvas;
+    zoomCtx.clearRect(0,0,zoomCanvas.width, zoomCanvas.height);
+    zoomCtx.drawImage(src, 0, 0);
+  }
+
   scrubRange.value = idx;
 }
 
@@ -1223,6 +1366,7 @@ function playLoop(){
 }
 function stopPlayback(){
   playing = false; clearTimeout(playTimer);
+  closeZoom();
 }
 
 btnPlay.addEventListener('click', () => {
