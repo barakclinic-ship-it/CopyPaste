@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>קופי פייסט</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14;
+    --bg-elev:#131826;
+    --bg-elev-2:#1B2233;
+    --line:#232B3D;
+    --text:#E8ECF3;
+    --muted:#8A93A6;
+    --accent:#00E5C7;
+    --accent-dim:#0A3B36;
+    --warn:#FFB020;
+    --bad:#FF3B5C;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Heebo',sans-serif; font-weight:400;
+    display:flex; justify-content:center;
+    overscroll-behavior:none;
+  }
+  #app{ width:100%; max-width:520px; min-height:100dvh; position:relative; display:flex; flex-direction:column; }
+
+  .screen{ display:none; flex-direction:column; flex:1; padding:20px 18px calc(20px + env(safe-area-inset-bottom)); }
+  .screen.active{ display:flex; }
+
+  h1,h2,h3{ font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em; }
+
+  /* ---- Header / brand ---- */
+  .brand{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .brand-mark{ display:flex; align-items:center; gap:10px; }
+  .brand-copies{ position:relative; width:30px; height:30px; flex:none; }
+  .brand-copies span{
+    position:absolute; inset:0; border:2px solid var(--accent); border-radius:7px;
+  }
+  .brand-copies span:first-child{ transform:translate(4px,4px); opacity:.45; }
+  .brand-title{ font-size:22px; font-weight:700; }
+  .brand-sub{ font-size:11px; color:var(--muted); margin-top:1px; }
+  .icon-btn{
+    width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:var(--bg-elev);
+    color:var(--text); display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer;
+  }
+
+  /* ---- Buttons ---- */
+  .btn{
+    font-family:'Heebo',sans-serif; font-weight:700; font-size:15px; border:none; border-radius:14px;
+    padding:15px 18px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primary{ background:var(--accent); color:#052421; }
+  .btn-primary:active{ opacity:.85; }
+  .btn-ghost{ background:var(--bg-elev); color:var(--text); border:1px solid var(--line); }
+  .btn-block{ width:100%; }
+  .btn:disabled{ opacity:.4; }
+
+  /* ---- Home screen ---- */
+  .create-card{
+    background:linear-gradient(145deg, var(--bg-elev-2), var(--bg-elev));
+    border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:22px;
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+    position:relative; overflow:hidden;
+  }
+  .create-card::after{
+    content:""; position:absolute; inset:0; background:linear-gradient(180deg, transparent, rgba(0,229,199,.06));
+    pointer-events:none;
+  }
+  .create-card-text{ font-size:16px; font-weight:700; }
+  .create-card-sub{ font-size:12px; color:var(--muted); margin-top:4px; font-weight:400; }
+  .plus-badge{
+    width:44px; height:44px; border-radius:50%; background:var(--accent); color:#052421;
+    display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; flex:none;
+  }
+
+  .section-label{ font-size:12px; color:var(--muted); font-weight:700; letter-spacing:.04em; margin:4px 2px 10px; text-transform:uppercase; }
+
+  .ref-list{ display:flex; flex-direction:column; gap:10px; }
+  .ref-card{
+    background:var(--bg-elev); border:1px solid var(--line); border-radius:14px; padding:12px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .ref-thumb{
+    width:52px; height:52px; border-radius:10px; background:var(--bg-elev-2) center/cover no-repeat;
+    flex:none; border:1px solid var(--line); position:relative; overflow:hidden;
+  }
+  .ref-thumb svg{ width:100%; height:100%; opacity:.35; }
+  .ref-info{ flex:1; min-width:0; }
+  .ref-name{ font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ref-meta{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .ref-actions{ display:flex; gap:8px; flex:none; }
+  .ref-try{ background:var(--accent); color:#052421; border:none; border-radius:10px; padding:9px 14px; font-weight:700; font-size:13px; cursor:pointer; }
+  .ref-del{ background:transparent; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:9px; }
+
+  .empty-state{ text-align:center; padding:40px 10px; color:var(--muted); font-size:14px; }
+
+  /* ---- Capture screen ---- */
+  .cap-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .cap-title{ font-size:15px; font-weight:700; }
+  .cap-mode-pill{ font-size:11px; color:var(--accent); background:var(--accent-dim); border-radius:20px; padding:5px 12px; font-weight:700; }
+
+  .camera-wrap{
+    position:relative; width:100%; aspect-ratio:3/4; background:#000; border-radius:var(--radius);
+    overflow:hidden; border:1px solid var(--line); margin-bottom:16px;
+  }
+  .camera-wrap video, .camera-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .cam-flip{
+    position:absolute; top:12px; left:12px; z-index:3; width:38px; height:38px; border-radius:50%;
+    background:rgba(11,14,20,.6); border:1px solid rgba(255,255,255,.15); color:#fff; font-size:16px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; backdrop-filter:blur(4px);
+  }
+  .countdown-num{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk',sans-serif; font-size:96px; font-weight:700; color:#fff;
+    text-shadow:0 4px 30px rgba(0,0,0,.6); z-index:4; background:rgba(0,0,0,.25);
+  }
+  .rec-ring-wrap{ position:absolute; bottom:14px; right:14px; z-index:3; }
+  .timer-badge{
+    position:absolute; top:12px; right:12px; z-index:3; background:rgba(11,14,20,.6); border:1px solid rgba(255,59,92,.5);
+    color:#fff; font-family:'JetBrains Mono',monospace; font-size:12px; padding:5px 10px; border-radius:20px;
+    display:none; align-items:center; gap:6px;
+  }
+  .timer-badge.show{ display:flex; }
+  .timer-dot{ width:7px; height:7px; border-radius:50%; background:var(--bad); animation:pulse 1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+  .cap-controls{ display:flex; align-items:center; justify-content:center; gap:22px; margin-bottom:10px; }
+  .record-btn{
+    width:76px; height:76px; border-radius:50%; border:4px solid var(--text); background:transparent;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .record-btn-inner{ width:58px; height:58px; border-radius:50%; background:var(--bad); transition:.15s; }
+  .record-btn.recording .record-btn-inner{ border-radius:8px; width:30px; height:30px; }
+  .cap-hint{ text-align:center; font-size:12px; color:var(--muted); margin-top:2px; }
+
+  /* preview after capture */
+  .preview-actions{ display:flex; gap:10px; margin-top:14px; }
+  .name-input{
+    width:100%; background:var(--bg-elev); border:1px solid var(--line); color:var(--text);
+    border-radius:12px; padding:14px; font-size:15px; font-family:'Heebo',sans-serif; margin-bottom:12px;
+  }
+  .name-input::placeholder{ color:var(--muted); }
+
+  .ref-preview-strip{
+    display:flex; align-items:center; gap:10px; background:var(--bg-elev); border:1px solid var(--line);
+    border-radius:12px; padding:10px 12px; margin-bottom:14px;
+  }
+  .ref-preview-strip video{ width:44px; height:44px; border-radius:8px; object-fit:cover; }
+
+  /* ---- Loading / processing ---- */
+  .processing{
+    position:fixed; inset:0; background:rgba(6,8,12,.94); z-index:50; display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  }
+  .processing.show{ display:flex; }
+  .scanbox{ position:relative; width:120px; height:120px; border:2px solid var(--line); border-radius:16px; overflow:hidden; }
+  .scanbox::before{
+    content:""; position:absolute; inset:0; border:2px solid var(--accent); border-radius:16px;
+    transform:translate(6px,6px); opacity:.5;
+  }
+  .scanline{
+    position:absolute; right:0; left:0; height:2px; background:var(--accent); box-shadow:0 0 12px var(--accent);
+    animation:scan 1.4s ease-in-out infinite;
+  }
+  @keyframes scan{ 0%{ top:6%; } 50%{ top:88%; } 100%{ top:6%; } }
+  .processing-text{ font-family:'Space Grotesk',sans-serif; font-weight:500; font-size:14px; color:var(--muted); }
+  .processing-pct{ font-family:'JetBrains Mono',monospace; color:var(--accent); font-size:22px; font-weight:700; }
+
+  /* ---- Result screen ---- */
+  .score-hero{ text-align:center; margin:6px 0 18px; }
+  .score-num{ font-family:'JetBrains Mono',monospace; font-size:64px; font-weight:700; line-height:1; }
+  .score-label{ font-size:12px; color:var(--muted); margin-top:6px; letter-spacing:.03em; }
+
+  .compare-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .compare-col{ }
+  .compare-tag{ font-size:11px; color:var(--muted); font-weight:700; margin-bottom:6px; text-align:center; }
+  .compare-canvas-wrap{ position:relative; width:100%; aspect-ratio:3/4; background:#000; border-radius:14px; overflow:hidden; border:1px solid var(--line); }
+  .compare-canvas-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; }
+  .compare-canvas-wrap.ref{ border-color:var(--accent-dim); }
+
+  .scrub-row{ display:flex; align-items:center; gap:10px; margin:6px 0 18px; }
+  .play-btn{
+    width:42px; height:42px; border-radius:50%; background:var(--bg-elev); border:1px solid var(--line);
+    color:var(--text); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;
+  }
+  .scrub-row input[type=range]{ flex:1; accent-color:var(--accent); }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
+  .legend-chip{
+    display:flex; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--line);
+    border-radius:20px; padding:6px 11px; font-size:12px;
+  }
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+
+  .corrections-btn{ position:relative; margin-bottom:10px; }
+  .corrections-badge{
+    position:absolute; top:-6px; left:-6px; background:var(--bad); color:#fff; font-size:11px; font-weight:700;
+    min-width:20px; height:20px; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0 5px;
+  }
+
+  .result-actions{ display:flex; gap:10px; margin-top:auto; }
+  .result-actions .btn{ flex:1; }
+
+  /* ---- Corrections modal (bottom sheet) ---- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(4,6,10,.7); z-index:60; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal-sheet{
+    width:100%; max-width:520px; max-height:78vh; background:var(--bg-elev);
+    border:1px solid var(--line); border-bottom:none; border-radius:22px 22px 0 0;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom)); display:flex; flex-direction:column;
+    animation:sheetUp .22s ease-out;
+  }
+  @keyframes sheetUp{ from{ transform:translateY(24px); opacity:.4; } to{ transform:translateY(0); opacity:1; } }
+  .modal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex:none; }
+  .modal-title{ font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; }
+  .modal-body{ overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+  .correction-item{ display:flex; gap:10px; background:var(--bg-elev-2); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .correction-dot{ width:9px; height:9px; border-radius:50%; margin-top:6px; flex:none; }
+  .correction-label{ font-size:11px; color:var(--muted); margin-bottom:2px; font-weight:700; }
+  .correction-msg{ font-size:13.5px; line-height:1.5; }
+  .correction-empty{ text-align:center; color:var(--muted); font-size:14px; padding:30px 10px; }
+
+  .hidden-video{ display:none; }
+
+  a, a:visited{ color:var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== HOME ===================== -->
+  <section class="screen active" id="screen-home">
+    <div class="brand">
+      <div class="brand-mark">
+        <div class="brand-copies"><span></span><span></span></div>
+        <div>
+          <div class="brand-title">קופי פייסט</div>
+          <div class="brand-sub">תעתיק כל תנועה</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="create-card" id="btnCreateRef">
+      <div>
+        <div class="create-card-text">הקלטת תנועה לדוגמה</div>
+        <div class="create-card-sub">עד 6 שניות · המורה מדגים</div>
+      </div>
+      <div class="plus-badge">+</div>
+    </div>
+
+    <div class="section-label">תנועות לדוגמה שמורות</div>
+    <div class="ref-list" id="refList"></div>
+    <div class="empty-state" id="emptyState">עדיין אין תנועות לדוגמה. הקליטו את הראשונה ⬆</div>
+  </section>
+
+  <!-- ===================== CAPTURE ===================== -->
+  <section class="screen" id="screen-capture">
+    <div class="cap-header">
+      <button class="icon-btn" id="btnBackFromCapture">→</button>
+      <div class="cap-title" id="capTitle">הקלטת תנועה לדוגמה</div>
+      <div class="cap-mode-pill" id="capModePill">לדוגמה</div>
+    </div>
+
+    <div class="ref-preview-strip" id="attemptRefStrip" style="display:none;">
+      <video id="attemptRefVideo" muted loop autoplay playsinline></video>
+      <div>
+        <div style="font-size:13px;font-weight:700;" id="attemptRefName">—</div>
+        <div style="font-size:11px;color:var(--muted);">צפו בהדגמה, ואז בצעו אותה</div>
+      </div>
+    </div>
+
+    <div class="camera-wrap" id="cameraWrap">
+      <video id="liveVideo" autoplay playsinline muted></video>
+      <canvas id="previewCanvas" style="display:none;"></canvas>
+      <button class="cam-flip" id="btnFlipCam">⟲</button>
+      <div class="timer-badge" id="timerBadge"><span class="timer-dot"></span><span id="timerText">0:00</span></div>
+      <div class="countdown-num" id="countdownNum" style="display:none;"></div>
+    </div>
+
+    <div id="liveControls">
+      <div class="cap-controls">
+        <button class="record-btn" id="btnRecord"><span class="record-btn-inner"></span></button>
+      </div>
+      <div class="cap-hint">לחצו כדי להתחיל · הקלטה אוטומטית עד 6 שניות</div>
+    </div>
+
+    <div id="previewControls" style="display:none;">
+      <input class="name-input" id="refNameInput" placeholder="שם התנועה (למשל: בעיטה קדמית)" style="display:none;" />
+      <div class="preview-actions">
+        <button class="btn btn-ghost btn-block" id="btnRetake">הקלטה מחדש</button>
+        <button class="btn btn-primary btn-block" id="btnUsePreview">שימוש בהקלטה</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== RESULT ===================== -->
+  <section class="screen" id="screen-result">
+    <div class="cap-header">
+      <button class="icon-btn" id="btnBackFromResult">→</button>
+      <div class="cap-title">תוצאה</div>
+      <div style="width:40px;"></div>
+    </div>
+
+    <div class="score-hero">
+      <div class="score-num" id="scoreNum">--</div>
+      <div class="score-label">התאמה לתנועה לדוגמה</div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-col">
+        <div class="compare-tag">לדוגמה</div>
+        <div class="compare-canvas-wrap ref"><canvas id="refCanvas"></canvas></div>
+      </div>
+      <div class="compare-col">
+        <div class="compare-tag">הביצוע שלך</div>
+        <div class="compare-canvas-wrap"><canvas id="stuCanvas"></canvas></div>
+      </div>
+    </div>
+
+    <div class="scrub-row">
+      <button class="play-btn" id="btnPlay">▶</button>
+      <input type="range" id="scrubRange" min="0" max="0" value="0" step="1" />
+    </div>
+
+    <div class="legend" id="legendRow"></div>
+
+    <button class="btn btn-ghost btn-block corrections-btn" id="btnCorrections">
+      📋 תיקונים לביצוע
+      <span class="corrections-badge" id="correctionsBadge" style="display:none;">0</span>
+    </button>
+
+    <div class="result-actions">
+      <button class="btn btn-ghost" id="btnRetry">נסה שוב</button>
+      <button class="btn btn-primary" id="btnShare">שיתוף</button>
+    </div>
+  </section>
+
+  <div class="modal-overlay" id="correctionsModal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">תיקונים לביצוע</div>
+        <button class="icon-btn" id="btnCloseCorrections">✕</button>
+      </div>
+      <div class="modal-body" id="correctionsList"></div>
+    </div>
+  </div>
+
+  <video id="refPlayerVideo" class="hidden-video" muted playsinline></video>
+  <video id="stuPlayerVideo" class="hidden-video" muted playsinline></video>
+
+  <div class="processing" id="processingOverlay">
+    <div class="scanbox"><div class="scanline"></div></div>
+    <div class="processing-pct" id="procPct">0%</div>
+    <div class="processing-text" id="procText">מפענח תנועה…</div>
+  </div>
+
+</div>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+/* ===================== CONFIG ===================== */
+const MAX_DURATION = 6;      // seconds
+const SAMPLE_FPS = 8;        // frames per second sampled for pose analysis
+const TASKS_VISION_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
+const JOINTS = [
+  ['L_elbow',11,13,15], ['R_elbow',12,14,16],
+  ['L_shoulder',13,11,23], ['R_shoulder',14,12,24],
+  ['L_hip',11,23,25], ['R_hip',12,24,26],
+  ['L_knee',23,25,27], ['R_knee',24,26,28],
+];
+const JOINT_NAMES = JOINTS.map(j=>j[0]).concat(['Torso']);
+const JOINT_LABELS_HE = {
+  L_elbow:'מרפק שמאל', R_elbow:'מרפק ימין',
+  L_shoulder:'כתף שמאל', R_shoulder:'כתף ימין',
+  L_hip:'ירך שמאל', R_hip:'ירך ימין',
+  L_knee:'ברך שמאל', R_knee:'ברך ימין',
+  Torso:'ציר גוף'
+};
+const CONNECTIONS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+
+/* ===================== INDEXEDDB ===================== */
+const DB_NAME='copypaste-db', DB_VERSION=1, STORE='references';
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'id'});
+    };
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbPut(rec){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).put(rec);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function dbGetAll(){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(STORE,'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbDelete(id){
+  const db = await openDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+/* ===================== POSE LANDMARKER ===================== */
+let landmarker = null;
+async function getLandmarker(){
+  if(landmarker) return landmarker;
+  const vision = await FilesetResolver.forVisionTasks(TASKS_VISION_CDN);
+  try{
+    landmarker = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions:{ modelAssetPath: MODEL_URL, delegate:"GPU" },
+      runningMode:"IMAGE", numPoses:1
+    });
+  }catch(e){
+    landmarker = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions:{ modelAssetPath: MODEL_URL, delegate:"CPU" },
+      runningMode:"IMAGE", numPoses:1
+    });
+  }
+  return landmarker;
+}
+
+/* ===================== FRAME EXTRACTION ===================== */
+function seekTo(video, t){
+  return new Promise((res)=>{
+    const onSeeked = () => { video.removeEventListener('seeked', onSeeked); res(); };
+    video.addEventListener('seeked', onSeeked);
+    try{ video.currentTime = t; }catch(e){ res(); }
+  });
+}
+function loadVideoMeta(video){
+  return new Promise((res,rej)=>{
+    if(video.readyState >= 1) return res();
+    video.onloadedmetadata = () => res();
+    video.onerror = () => rej(new Error('video load error'));
+  });
+}
+
+async function extractFrames(blob, onProgress){
+  const url = URL.createObjectURL(blob);
+  const video = document.createElement('video');
+  video.src = url; video.muted = true; video.playsInline = true;
+  await loadVideoMeta(video);
+  const duration = Math.min(video.duration || MAX_DURATION, MAX_DURATION);
+  const w = video.videoWidth || 480, h = video.videoHeight || 640;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const lm = await getLandmarker();
+
+  const step = 1 / SAMPLE_FPS;
+  const totalSteps = Math.max(1, Math.ceil(duration / step));
+  const frames = [];
+  let n = 0;
+  for(let t = 0; t < duration; t += step){
+    await seekTo(video, t);
+    ctx.drawImage(video, 0, 0, w, h);
+    let landmarks = null;
+    try{
+      const result = lm.detect(canvas);
+      if(result && result.landmarks && result.landmarks[0]) landmarks = result.landmarks[0];
+    }catch(e){ /* skip frame on detection error */ }
+    frames.push({ t, landmarks, angles: computeAngles(landmarks) });
+    n++;
+    if(onProgress) onProgress(Math.min(1, n/totalSteps));
+  }
+  URL.revokeObjectURL(url);
+  return { frames, duration, width: w, height: h };
+}
+
+/* ===================== ANGLES ===================== */
+function vec(a,b){ return { x:b.x-a.x, y:b.y-a.y, z:(b.z||0)-(a.z||0) }; }
+function angleBetween(u,v){
+  const dot = u.x*v.x + u.y*v.y + u.z*v.z;
+  const mu = Math.hypot(u.x,u.y,u.z), mv = Math.hypot(v.x,v.y,v.z);
+  if(mu===0 || mv===0) return null;
+  let c = dot/(mu*mv); c = Math.max(-1, Math.min(1, c));
+  return Math.acos(c) * 180 / Math.PI;
+}
+function getPt(landmarks, idx, threshold=0.5){
+  const p = landmarks ? landmarks[idx] : null;
+  if(!p) return null;
+  if(typeof p.visibility === 'number' && p.visibility < threshold) return null;
+  return p;
+}
+function computeAngles(landmarks){
+  if(!landmarks) return null;
+  const out = {};
+  for(const [name, ai, bi, ci] of JOINTS){
+    const a = getPt(landmarks,ai), b = getPt(landmarks,bi), c = getPt(landmarks,ci);
+    out[name] = (a&&b&&c) ? angleBetween(vec(b,a), vec(b,c)) : null;
+  }
+  const ls=getPt(landmarks,11), rs=getPt(landmarks,12), lh=getPt(landmarks,23), rh=getPt(landmarks,24), nose=getPt(landmarks,0);
+  if(ls&&rs&&lh&&rh&&nose){
+    const midS = { x:(ls.x+rs.x)/2, y:(ls.y+rs.y)/2, z:((ls.z||0)+(rs.z||0))/2 };
+    const midH = { x:(lh.x+rh.x)/2, y:(lh.y+rh.y)/2, z:((lh.z||0)+(rh.z||0))/2 };
+    out['Torso'] = angleBetween(vec(midS,nose), vec(midS,midH));
+  } else out['Torso'] = null;
+  return out;
+}
+
+/* ===================== DTW ===================== */
+function frameVector(angles){
+  return JOINT_NAMES.map(n => angles && angles[n] != null ? angles[n] : null);
+}
+function frameDist(v1, v2){
+  let sum=0, count=0;
+  for(let i=0;i<v1.length;i++){
+    if(v1[i]==null || v2[i]==null) continue;
+    sum += Math.abs(v1[i]-v2[i]); count++;
+  }
+  return count ? sum/count : 90;
+}
+function dtw(seqA, seqB){
+  const n = seqA.length, m = seqB.length;
+  const D = Array.from({length:n+1}, () => new Float64Array(m+1).fill(Infinity));
+  D[0][0] = 0;
+  const vecs1 = seqA.map(f => frameVector(f.angles));
+  const vecs2 = seqB.map(f => frameVector(f.angles));
+  for(let i=1;i<=n;i++){
+    for(let j=1;j<=m;j++){
+      const cost = frameDist(vecs1[i-1], vecs2[j-1]);
+      D[i][j] = cost + Math.min(D[i-1][j], D[i][j-1], D[i-1][j-1]);
+    }
+  }
+  let i=n, j=m; const path=[];
+  while(i>0 && j>0){
+    path.push([i-1,j-1]);
+    const opts = [[D[i-1][j-1],i-1,j-1],[D[i-1][j],i-1,j],[D[i][j-1],i,j-1]];
+    opts.sort((a,b)=>a[0]-b[0]);
+    i = opts[0][1]; j = opts[0][2];
+  }
+  path.reverse();
+  return { cost: D[n][m], path };
+}
+
+/* ===================== SCORING ===================== */
+function scoreFromPath(path, seqA, seqB){
+  let total=0, count=0;
+  const perJointSums = Object.fromEntries(JOINT_NAMES.map(n=>[n,{sum:0,count:0}]));
+  const perStepDeviation = [];
+  for(const [i,j] of path){
+    const vA = frameVector(seqA[i].angles), vB = frameVector(seqB[j].angles);
+    const stepJoints = {};
+    for(let k=0;k<JOINT_NAMES.length;k++){
+      const name = JOINT_NAMES[k];
+      if(vA[k]==null || vB[k]==null){ stepJoints[name]=null; continue; }
+      const d = Math.abs(vA[k]-vB[k]);
+      stepJoints[name]=d;
+      perJointSums[name].sum += d; perJointSums[name].count++;
+      total += d; count++;
+    }
+    perStepDeviation.push(stepJoints);
+  }
+  const avgDev = count ? total/count : 60;
+  const score = Math.max(0, Math.min(100, Math.round(100 - avgDev*1.6)));
+  const perJointAvg = {};
+  for(const name of JOINT_NAMES){
+    const {sum,count:c} = perJointSums[name];
+    perJointAvg[name] = c ? sum/c : null;
+  }
+  return { score, perJointAvg, perStepDeviation };
+}
+function devColor(d){
+  if(d==null) return '#54607a';
+  if(d<15) return '#00E5C7';
+  if(d<35) return '#FFB020';
+  return '#FF3B5C';
+}
+
+/* ===================== CORRECTIONS RULE ENGINE =====================
+   Instead of hard-coded exercises, rules are auto-mined from the reference
+   take itself: any point-to-point relationship the reference keeps
+   consistent (low variance) throughout the movement is treated as
+   "intentional" and checked against the student's attempt. */
+const LM = { NOSE:0, L_SH:11,R_SH:12, L_EL:13,R_EL:14, L_WR:15,R_WR:16,
+             L_HIP:23,R_HIP:24, L_KNEE:25,R_KNEE:26, L_ANK:27,R_ANK:28, L_TOE:31,R_TOE:32 };
+const SIDE_LABEL = { L:'שמאלית', R:'ימנית' };
+
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function torsoScale(lm){
+  const ls=getPt(lm,LM.L_SH), rs=getPt(lm,LM.R_SH), lh=getPt(lm,LM.L_HIP), rh=getPt(lm,LM.R_HIP);
+  if(!ls||!rs||!lh||!rh) return null;
+  const d = dist({x:(ls.x+rs.x)/2,y:(ls.y+rs.y)/2},{x:(lh.x+rh.x)/2,y:(lh.y+rh.y)/2});
+  return d>0.01 ? d : null;
+}
+function legScale(lm, side){
+  const hip=getPt(lm, side==='L'?LM.L_HIP:LM.R_HIP), ank=getPt(lm, side==='L'?LM.L_ANK:LM.R_ANK);
+  if(!hip||!ank) return null;
+  const d = dist(hip,ank);
+  return d>0.01 ? d : null;
+}
+function shoulderWidth(lm){
+  const ls=getPt(lm,LM.L_SH), rs=getPt(lm,LM.R_SH);
+  if(!ls||!rs) return null;
+  const d = dist(ls,rs);
+  return d>0.01 ? d : null;
+}
+
+function buildRelationRules(){
+  const rules = [];
+  for(const S of ['L','R']){
+    const WR = S==='L'?LM.L_WR:LM.R_WR, SH = S==='L'?LM.L_SH:LM.R_SH,
+          EL = S==='L'?LM.L_EL:LM.R_EL, HIP = S==='L'?LM.L_HIP:LM.R_HIP,
+          KNEE = S==='L'?LM.L_KNEE:LM.R_KNEE, TOE = S==='L'?LM.L_TOE:LM.R_TOE;
+    rules.push({
+      id:`wristSh_${S}`, kind:'continuous', side:S,
+      label:`גובה כף היד ה${SIDE_LABEL[S]} ביחס לכתף`,
+      compute:(lm)=>{ const w=getPt(lm,WR), sh=getPt(lm,SH), sc=torsoScale(lm); return (w&&sh&&sc) ? (w.y-sh.y)/sc : null; },
+      msgHigh:()=>`כף היד ה${SIDE_LABEL[S]} יורדת נמוך מדי - הרימו אותה לגובה הכתף כמו בדוגמה`,
+      msgLow:()=>`כף היד ה${SIDE_LABEL[S]} גבוהה מדי - הורידו אותה לגובה הכתף כמו בדוגמה`,
+    });
+    rules.push({
+      id:`kneeToe_${S}`, kind:'continuous', side:S,
+      label:`הברך ה${SIDE_LABEL[S]} ביחס לקו האצבעות`,
+      compute:(lm)=>{ const k=getPt(lm,KNEE), t=getPt(lm,TOE), sc=legScale(lm,S); return (k&&t&&sc) ? (k.x-t.x)/sc : null; },
+      msgHigh:()=>`הברך ה${SIDE_LABEL[S]} מתקדמת יותר מדי לפני קו האצבעות ביחס לדוגמה`,
+      msgLow:()=>`הברך ה${SIDE_LABEL[S]} נשארת מאחורי קו האצבעות - קדמו אותה כמו בדוגמה`,
+    });
+    rules.push({
+      id:`elbowBody_${S}`, kind:'continuous', side:S,
+      label:`מרחק המרפק ה${SIDE_LABEL[S]} מהגוף`,
+      compute:(lm)=>{ const e=getPt(lm,EL), h=getPt(lm,HIP), sc=torsoScale(lm); return (e&&h&&sc) ? dist(e,h)/sc : null; },
+      msgHigh:()=>`המרפק ה${SIDE_LABEL[S]} פתוח מדי מהגוף - קרבו אותו כמו בדוגמה`,
+      msgLow:()=>`המרפק ה${SIDE_LABEL[S]} צמוד מדי לגוף - פתחו אותו מעט כמו בדוגמה`,
+    });
+    rules.push({
+      id:`crossCenter_${S}`, kind:'peak', side:S,
+      label:`חצייה של קו מרכז הגוף עם כף היד ה${SIDE_LABEL[S]}`,
+      compute:(lm)=>{
+        const w=getPt(lm,WR), lh=getPt(lm,LM.L_HIP), rh=getPt(lm,LM.R_HIP), sc=torsoScale(lm);
+        if(!w||!lh||!rh||!sc) return null;
+        return Math.abs(((lh.x+rh.x)/2) - w.x)/sc;
+      },
+      msgLow:()=>`כף היד ה${SIDE_LABEL[S]} לא חצתה מספיק את קו מרכז הגוף ביחס לדוגמה`,
+    });
+  }
+  rules.push({
+    id:'stanceWidth', kind:'continuous',
+    label:'רוחב העמידה בין כפות הרגליים',
+    compute:(lm)=>{ const a=getPt(lm,LM.L_ANK), b=getPt(lm,LM.R_ANK), sc=shoulderWidth(lm); return (a&&b&&sc) ? dist(a,b)/sc : null; },
+    msgHigh:()=>`העמידה רחבה מדי ביחס לדוגמה - צמצמו מעט את המרחק בין הרגליים`,
+    msgLow:()=>`העמידה צרה מדי ביחס לדוגמה - פתחו מעט יותר את הרגליים`,
+  });
+  return rules;
+}
+
+function mineAndCheckRules(refFrames, stuFrames, path){
+  const rules = buildRelationRules();
+  const results = [];
+  for(const rule of rules){
+    const refVals = refFrames.map(f => f.landmarks ? rule.compute(f.landmarks) : null).filter(v=>v!=null);
+    if(refVals.length < Math.max(4, refFrames.length*0.4)) continue; // not enough visible data in the reference
+
+    if(rule.kind === 'continuous'){
+      const mean = refVals.reduce((a,b)=>a+b,0)/refVals.length;
+      const variance = refVals.reduce((a,b)=>a+(b-mean)**2,0)/refVals.length;
+      const std = Math.sqrt(variance);
+      if(std > 0.22) continue; // reference itself isn't consistent here - not a real rule
+      const tol = Math.max(0.12, std*2.2);
+      let violCount=0, matched=0, sumSigned=0;
+      for(const [i,j] of path){
+        const stuLm = stuFrames[j].landmarks;
+        if(!stuLm) continue;
+        const v = rule.compute(stuLm);
+        if(v==null) continue;
+        matched++;
+        const diff = v - mean;
+        sumSigned += diff;
+        if(Math.abs(diff) > tol) violCount++;
+      }
+      if(matched < 4) continue;
+      const fracViol = violCount/matched;
+      if(fracViol >= 0.3){
+        const avgSigned = sumSigned/matched;
+        results.push({ label: rule.label, severity: fracViol, message: avgSigned > 0 ? rule.msgHigh() : rule.msgLow() });
+      }
+    } else if(rule.kind === 'peak'){
+      const refPeak = Math.max(...refVals);
+      if(refPeak < 0.28) continue; // not a meaningful reach/extension in the reference
+      let stuPeak = -Infinity, any=false;
+      for(const [i,j] of path){
+        const stuLm = stuFrames[j].landmarks;
+        if(!stuLm) continue;
+        const v = rule.compute(stuLm);
+        if(v==null) continue;
+        any = true;
+        if(v > stuPeak) stuPeak = v;
+      }
+      if(!any) continue;
+      const tol = Math.max(0.1, refPeak*0.22);
+      if(stuPeak < refPeak - tol){
+        results.push({ label: rule.label, severity: (refPeak-stuPeak)/refPeak, message: rule.msgLow() });
+      }
+    }
+  }
+  results.sort((a,b)=>b.severity-a.severity);
+  return results.slice(0,6);
+}
+
+/* ---- Movement-order check: which joint should move before which ---- */
+function jointOnsetFraction(frames, jointName){
+  const vals = frames.map(f => f.angles ? f.angles[jointName] : null);
+  const firstValid = vals.findIndex(v=>v!=null);
+  if(firstValid === -1) return null;
+  const base = vals[firstValid];
+  const n = vals.length;
+  for(let k=firstValid;k<n;k++){
+    if(vals[k]==null) continue;
+    if(Math.abs(vals[k]-base) > 12) return k/((n-1)||1);
+  }
+  return null;
+}
+function checkOrder(refFrames, stuFrames){
+  const mainJoints = JOINT_NAMES;
+  const refOnsets = {}, stuOnsets = {};
+  for(const j of mainJoints){
+    refOnsets[j] = jointOnsetFraction(refFrames, j);
+    stuOnsets[j] = jointOnsetFraction(stuFrames, j);
+  }
+  const results = [];
+  for(const A of mainJoints){
+    for(const B of mainJoints){
+      if(A===B) continue;
+      if(refOnsets[A]==null || refOnsets[B]==null) continue;
+      const gapRef = refOnsets[B] - refOnsets[A];
+      if(gapRef < 0.12) continue; // no clear order in the reference for this pair
+      if(stuOnsets[A]==null || stuOnsets[B]==null) continue;
+      const gapStu = stuOnsets[B] - stuOnsets[A];
+      if(gapStu < 0.02){
+        results.push({
+          severity: gapRef,
+          message: `שימו לב לסדר התנועה: ${JOINT_LABELS_HE[A]} אמור לזוז לפני ${JOINT_LABELS_HE[B]}, ובביצוע שלכם הם זזו כמעט יחד או בסדר הפוך`
+        });
+      }
+    }
+  }
+  results.sort((a,b)=>b.severity-a.severity);
+  return results.slice(0,3);
+}
+
+/* ---- Endpoint check: did the student complete the full range ---- */
+function checkEndpoint(refFrames, stuFrames, path){
+  if(path.length===0) return null;
+  const lastN = Math.min(3, path.length);
+  let sum=0, count=0;
+  for(let k=path.length-lastN; k<path.length; k++){
+    const [i,j] = path[k];
+    const a = frameVector(refFrames[i].angles), b = frameVector(stuFrames[j].angles);
+    for(let x=0;x<a.length;x++){
+      if(a[x]==null || b[x]==null) continue;
+      sum += Math.abs(a[x]-b[x]); count++;
+    }
+  }
+  if(count<3) return null;
+  const avg = sum/count;
+  if(avg > 22){
+    return { severity: avg, message: 'נראה שלא הגעתם בדיוק לנקודת הסיום של התנועה כמו בדוגמה - ודאו שאתם משלימים את הטווח המלא' };
+  }
+  return null;
+}
+
+function buildCorrections(refFrames, stuFrames, path){
+  const orderIssues = checkOrder(refFrames, stuFrames);
+  const endpointIssue = checkEndpoint(refFrames, stuFrames, path);
+  const relIssues = mineAndCheckRules(refFrames, stuFrames, path);
+  return [...orderIssues, ...(endpointIssue?[endpointIssue]:[]), ...relIssues];
+}
+
+/* ===================== SKELETON DRAWING ===================== */
+function drawSkeleton(ctx, landmarks, stepDev, w, h, isReference){
+  if(!landmarks) return;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = isReference ? 'rgba(0,229,199,0.6)' : 'rgba(232,236,243,0.35)';
+  for(const [a,b] of CONNECTIONS){
+    const p1=getPt(landmarks,a), p2=getPt(landmarks,b);
+    if(!p1||!p2) continue;
+    ctx.beginPath();
+    ctx.moveTo(p1.x*w, p1.y*h);
+    ctx.lineTo(p2.x*w, p2.y*h);
+    ctx.stroke();
+  }
+  if(isReference){
+    for(const [,,bi] of JOINTS){
+      const p = getPt(landmarks,bi); if(!p) continue;
+      ctx.beginPath(); ctx.arc(p.x*w, p.y*h, 6, 0, Math.PI*2); ctx.fillStyle='#00E5C7'; ctx.fill();
+    }
+    return;
+  }
+  for(const [name,,bi] of JOINTS){
+    const p = getPt(landmarks,bi); if(!p) continue;
+    const d = stepDev ? stepDev[name] : null;
+    ctx.beginPath(); ctx.arc(p.x*w, p.y*h, 7, 0, Math.PI*2); ctx.fillStyle = devColor(d); ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='#0B0E14'; ctx.stroke();
+  }
+  const ls = getPt(landmarks,11), rs = getPt(landmarks,12);
+  if(ls && rs){
+    const mx=(ls.x+rs.x)/2*w, my=(ls.y+rs.y)/2*h;
+    const d = stepDev ? stepDev['Torso'] : null;
+    ctx.beginPath(); ctx.arc(mx,my,7,0,Math.PI*2); ctx.fillStyle=devColor(d); ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='#0B0E14'; ctx.stroke();
+  }
+}
+
+/* ===================== APP STATE / UI ===================== */
+const screens = {
+  home: document.getElementById('screen-home'),
+  capture: document.getElementById('screen-capture'),
+  result: document.getElementById('screen-result'),
+};
+function showScreen(name){
+  Object.values(screens).forEach(s=>s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
+
+let refs = [];
+let currentFacing = 'user';
+let mediaStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordTimer = null;
+let captureMode = 'reference'; // 'reference' | 'attempt'
+let activeAttemptRef = null;   // saved reference record when in attempt mode
+let lastRecordedBlob = null;
+let analysis = null;           // holds current comparison result
+
+const liveVideo = document.getElementById('liveVideo');
+const btnRecord = document.getElementById('btnRecord');
+const timerBadge = document.getElementById('timerBadge');
+const timerText = document.getElementById('timerText');
+const countdownNum = document.getElementById('countdownNum');
+const liveControls = document.getElementById('liveControls');
+const previewControls = document.getElementById('previewControls');
+const refNameInput = document.getElementById('refNameInput');
+const attemptRefStrip = document.getElementById('attemptRefStrip');
+const attemptRefVideo = document.getElementById('attemptRefVideo');
+const attemptRefName = document.getElementById('attemptRefName');
+const capTitle = document.getElementById('capTitle');
+const capModePill = document.getElementById('capModePill');
+const processingOverlay = document.getElementById('processingOverlay');
+const procPct = document.getElementById('procPct');
+const procText = document.getElementById('procText');
+
+async function startCamera(){
+  if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); }
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode: currentFacing, width:{ideal:720}, height:{ideal:960} },
+      audio:false
+    });
+    liveVideo.srcObject = mediaStream;
+  }catch(e){
+    alert('לא ניתן לגשת למצלמה. יש לאשר הרשאת מצלמה בדפדפן.');
+  }
+}
+
+document.getElementById('btnFlipCam').addEventListener('click', () => {
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  startCamera();
+});
+
+function resetCaptureUI(){
+  recState = 'idle';
+  liveVideo.style.display='block';
+  document.getElementById('previewCanvas').style.display='none';
+  liveControls.style.display='block';
+  previewControls.style.display='none';
+  btnRecord.classList.remove('recording');
+  timerBadge.classList.remove('show');
+  countdownNum.style.display='none';
+  recordedChunks = [];
+  lastRecordedBlob = null;
+}
+
+function openCapture(mode, refRecord){
+  captureMode = mode;
+  activeAttemptRef = refRecord || null;
+  resetCaptureUI();
+  if(mode === 'reference'){
+    capTitle.textContent = 'הקלטת תנועה לדוגמה';
+    capModePill.textContent = 'לדוגמה';
+    attemptRefStrip.style.display = 'none';
+    refNameInput.style.display = 'none';
+  } else {
+    capTitle.textContent = 'הקלטת ביצוע';
+    capModePill.textContent = 'תלמיד';
+    attemptRefStrip.style.display = 'flex';
+    refNameInput.style.display = 'none';
+    attemptRefName.textContent = refRecord.name;
+    const url = URL.createObjectURL(refRecord.videoBlob);
+    attemptRefVideo.src = url;
+  }
+  showScreen('capture');
+  startCamera();
+}
+
+document.getElementById('btnCreateRef').addEventListener('click', () => openCapture('reference'));
+document.getElementById('btnBackFromCapture').addEventListener('click', () => {
+  if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
+  showScreen('home');
+});
+document.getElementById('btnBackFromResult').addEventListener('click', () => {
+  stopPlayback();
+  showScreen('home');
+});
+
+/* ---- Recording flow with 3-2-1 countdown + 6s auto stop ---- */
+let recState = 'idle'; // 'idle' | 'counting' | 'recording'
+btnRecord.addEventListener('click', async () => {
+  if(recState === 'idle'){
+    recState = 'counting';
+    countdownNum.style.display='flex';
+    for(const n of ['3','2','1']){
+      countdownNum.textContent = n;
+      await new Promise(r=>setTimeout(r, 700));
+    }
+    countdownNum.style.display='none';
+    if(recState !== 'counting') return; // cancelled mid-countdown
+    beginRecording();
+  } else if(recState === 'recording'){
+    stopRecording();
+  }
+});
+
+function beginRecording(){
+  recordedChunks = [];
+  let mimeType = 'video/webm;codecs=vp9';
+  if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8';
+  if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+  mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
+  mediaRecorder.ondataavailable = (e) => { if(e.data.size>0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = onRecordingStopped;
+  mediaRecorder.start();
+
+  recState = 'recording';
+  btnRecord.classList.add('recording');
+  timerBadge.classList.add('show');
+  const startedAt = Date.now();
+  timerText.textContent = '0:00';
+  recordTimer = setInterval(() => {
+    const elapsed = (Date.now()-startedAt)/1000;
+    const remain = Math.max(0, MAX_DURATION - elapsed);
+    timerText.textContent = '0:' + String(Math.ceil(remain)).padStart(2,'0');
+    if(elapsed >= MAX_DURATION) stopRecording();
+  }, 100);
+}
+
+function stopRecording(){
+  if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  clearInterval(recordTimer);
+  timerBadge.classList.remove('show');
+  btnRecord.classList.remove('recording');
+  recState = 'idle';
+}
+
+function onRecordingStopped(){
+  lastRecordedBlob = new Blob(recordedChunks, { type:'video/webm' });
+  liveControls.style.display='none';
+  previewControls.style.display='block';
+  liveVideo.srcObject = null;
+  liveVideo.src = URL.createObjectURL(lastRecordedBlob);
+  liveVideo.muted = true; liveVideo.loop = true; liveVideo.play();
+  if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
+  if(captureMode === 'reference'){
+    refNameInput.style.display = 'block';
+    refNameInput.value = '';
+  }
+}
+
+document.getElementById('btnRetake').addEventListener('click', () => {
+  recState = 'idle';
+  resetCaptureUI();
+  liveVideo.src = '';
+  startCamera();
+});
+
+document.getElementById('btnUsePreview').addEventListener('click', async () => {
+  if(captureMode === 'reference'){
+    const name = refNameInput.value.trim() || 'תנועה ללא שם';
+    processingOverlay.classList.add('show');
+    procText.textContent = 'מנתח את התנועה לדוגמה…';
+    const { frames, duration, width, height } = await extractFrames(lastRecordedBlob, (p)=>{
+      procPct.textContent = Math.round(p*100)+'%';
+    });
+    const poster = await capturePoster(lastRecordedBlob);
+    const rec = {
+      id: 'ref_' + Date.now(),
+      name, createdAt: Date.now(),
+      videoBlob: lastRecordedBlob,
+      frames, duration, width, height,
+      poster
+    };
+    await dbPut(rec);
+    processingOverlay.classList.remove('show');
+    await loadRefs();
+    showScreen('home');
+  } else {
+    await runComparison(activeAttemptRef, lastRecordedBlob);
+  }
+});
+
+function capturePoster(blob){
+  return new Promise((res) => {
+    const url = URL.createObjectURL(blob);
+    const v = document.createElement('video');
+    v.src = url; v.muted = true; v.playsInline = true;
+    v.onloadeddata = () => {
+      v.currentTime = Math.min(0.15, (v.duration||1)/2);
+    };
+    v.onseeked = () => {
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext('2d').drawImage(v,0,0);
+      res(c.toDataURL('image/jpeg', 0.6));
+      URL.revokeObjectURL(url);
+    };
+  });
+}
+
+/* ===================== HOME LIST ===================== */
+async function loadRefs(){
+  refs = await dbGetAll();
+  refs.sort((a,b)=>b.createdAt-a.createdAt);
+  const list = document.getElementById('refList');
+  const empty = document.getElementById('emptyState');
+  list.innerHTML = '';
+  if(refs.length === 0){ empty.style.display='block'; return; }
+  empty.style.display='none';
+  for(const r of refs){
+    const card = document.createElement('div');
+    card.className = 'ref-card';
+    const dt = new Date(r.createdAt);
+    card.innerHTML = `
+      <div class="ref-thumb" style="background-image:url('${r.poster||''}')"></div>
+      <div class="ref-info">
+        <div class="ref-name">${escapeHtml(r.name)}</div>
+        <div class="ref-meta">${r.duration.toFixed(1)} שנ׳ · ${dt.toLocaleDateString('he-IL')}</div>
+      </div>
+      <div class="ref-actions">
+        <button class="ref-try" data-id="${r.id}">נסה</button>
+        <button class="ref-del" data-id="${r.id}">🗑</button>
+      </div>`;
+    list.appendChild(card);
+  }
+  list.querySelectorAll('.ref-try').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const rec = refs.find(r=>r.id===btn.dataset.id);
+      openCapture('attempt', rec);
+    });
+  });
+  list.querySelectorAll('.ref-del').forEach(btn=>{
+    btn.addEventListener('click', async () => {
+      if(confirm('למחוק את התנועה לדוגמה הזו?')){
+        await dbDelete(btn.dataset.id);
+        await loadRefs();
+      }
+    });
+  });
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ===================== COMPARISON PIPELINE ===================== */
+async function runComparison(refRecord, stuBlob){
+  processingOverlay.classList.add('show');
+  procText.textContent = 'מנתח את הביצוע שלך…';
+  procPct.textContent = '0%';
+  const stuData = await extractFrames(stuBlob, (p)=>{ procPct.textContent = Math.round(p*100)+'%'; });
+
+  procText.textContent = 'משווה לתנועה לדוגמה…';
+  const { path } = dtw(refRecord.frames, stuData.frames);
+  const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refRecord.frames, stuData.frames);
+  const corrections = buildCorrections(refRecord.frames, stuData.frames, path);
+
+  analysis = {
+    refFrames: refRecord.frames,
+    stuFrames: stuData.frames,
+    refDuration: refRecord.duration,
+    stuDuration: stuData.duration,
+    path, score, perJointAvg, perStepDeviation, corrections,
+    refBlob: refRecord.videoBlob,
+    stuBlob: stuBlob
+  };
+
+  processingOverlay.classList.remove('show');
+  renderResult();
+}
+
+/* ===================== RESULT SCREEN ===================== */
+const refCanvas = document.getElementById('refCanvas');
+const stuCanvas = document.getElementById('stuCanvas');
+const refCtx = refCanvas.getContext('2d');
+const stuCtx = stuCanvas.getContext('2d');
+const refPlayerVideo = document.getElementById('refPlayerVideo');
+const stuPlayerVideo = document.getElementById('stuPlayerVideo');
+const scrubRange = document.getElementById('scrubRange');
+const btnPlay = document.getElementById('btnPlay');
+const scoreNum = document.getElementById('scoreNum');
+const legendRow = document.getElementById('legendRow');
+
+let playing = false, playIndex = 0, playTimer = null;
+
+async function renderResult(){
+  showScreen('result');
+  scoreNum.textContent = analysis.score;
+  scoreNum.style.color = analysis.score>=80 ? '#00E5C7' : analysis.score>=50 ? '#FFB020' : '#FF3B5C';
+
+  refPlayerVideo.src = URL.createObjectURL(analysis.refBlob);
+  stuPlayerVideo.src = URL.createObjectURL(analysis.stuBlob);
+  await Promise.all([loadVideoMeta(refPlayerVideo), loadVideoMeta(stuPlayerVideo)]);
+
+  refCanvas.width = refPlayerVideo.videoWidth || 480; refCanvas.height = refPlayerVideo.videoHeight || 640;
+  stuCanvas.width = stuPlayerVideo.videoWidth || 480; stuCanvas.height = stuPlayerVideo.videoHeight || 640;
+
+  scrubRange.max = analysis.path.length - 1;
+  scrubRange.value = 0;
+  playIndex = 0;
+  playing = false;
+  btnPlay.textContent = '▶';
+
+  legendRow.innerHTML = '';
+  for(const name of JOINT_NAMES){
+    const d = analysis.perJointAvg[name];
+    const chip = document.createElement('div');
+    chip.className = 'legend-chip';
+    chip.innerHTML = `<span class="legend-dot" style="background:${devColor(d)}"></span>${JOINT_LABELS_HE[name]}`;
+    legendRow.appendChild(chip);
+  }
+
+  renderCorrections();
+  await renderStep(0);
+}
+
+function renderCorrections(){
+  const badge = document.getElementById('correctionsBadge');
+  const list = document.getElementById('correctionsList');
+  const items = analysis.corrections || [];
+  if(items.length === 0){
+    badge.style.display = 'none';
+    list.innerHTML = '<div class="correction-empty">ביצוע מדויק! לא נמצאו סטיות משמעותיות מהדוגמה 🎯</div>';
+    return;
+  }
+  badge.style.display = 'flex';
+  badge.textContent = items.length;
+  list.innerHTML = items.map(it => `
+    <div class="correction-item">
+      <span class="correction-dot" style="background:${it.severity>0.6 ? '#FF3B5C' : '#FFB020'}"></span>
+      <div>
+        ${it.label ? `<div class="correction-label">${it.label}</div>` : ''}
+        <div class="correction-msg">${it.message}</div>
+      </div>
+    </div>`).join('');
+}
+
+document.getElementById('btnCorrections').addEventListener('click', () => {
+  document.getElementById('correctionsModal').classList.add('show');
+});
+document.getElementById('btnCloseCorrections').addEventListener('click', () => {
+  document.getElementById('correctionsModal').classList.remove('show');
+});
+document.getElementById('correctionsModal').addEventListener('click', (e) => {
+  if(e.target.id === 'correctionsModal') e.currentTarget.classList.remove('show');
+});
+
+async function renderStep(idx){
+  const [i,j] = analysis.path[idx];
+  const refF = analysis.refFrames[i];
+  const stuF = analysis.stuFrames[j];
+  await seekTo(refPlayerVideo, refF.t);
+  refCtx.clearRect(0,0,refCanvas.width, refCanvas.height);
+  refCtx.drawImage(refPlayerVideo, 0,0, refCanvas.width, refCanvas.height);
+  drawSkeleton(refCtx, refF.landmarks, null, refCanvas.width, refCanvas.height, true);
+
+  await seekTo(stuPlayerVideo, stuF.t);
+  stuCtx.clearRect(0,0,stuCanvas.width, stuCanvas.height);
+  stuCtx.drawImage(stuPlayerVideo, 0,0, stuCanvas.width, stuCanvas.height);
+  drawSkeleton(stuCtx, stuF.landmarks, analysis.perStepDeviation[idx], stuCanvas.width, stuCanvas.height, false);
+
+  scrubRange.value = idx;
+}
+
+function playLoop(){
+  if(!playing) return;
+  renderStep(playIndex);
+  playIndex++;
+  if(playIndex >= analysis.path.length){
+    playIndex = 0; playing = false; btnPlay.textContent = '▶';
+    return;
+  }
+  playTimer = setTimeout(playLoop, 140);
+}
+function stopPlayback(){
+  playing = false; clearTimeout(playTimer);
+}
+
+btnPlay.addEventListener('click', () => {
+  if(!analysis) return;
+  playing = !playing;
+  btnPlay.textContent = playing ? '⏸' : '▶';
+  if(playing) playLoop();
+});
+scrubRange.addEventListener('input', () => {
+  stopPlayback(); btnPlay.textContent = '▶';
+  playIndex = Number(scrubRange.value);
+  renderStep(playIndex);
+});
+
+document.getElementById('btnRetry').addEventListener('click', () => {
+  stopPlayback();
+  openCapture('attempt', activeAttemptRef);
+});
+
+document.getElementById('btnShare').addEventListener('click', async () => {
+  const composite = document.createElement('canvas');
+  composite.width = refCanvas.width + stuCanvas.width;
+  composite.height = Math.max(refCanvas.height, stuCanvas.height);
+  const cctx = composite.getContext('2d');
+  cctx.fillStyle = '#0B0E14'; cctx.fillRect(0,0,composite.width, composite.height);
+  cctx.drawImage(refCanvas, 0, 0);
+  cctx.drawImage(stuCanvas, refCanvas.width, 0);
+  composite.toBlob(async (blob) => {
+    const file = new File([blob], 'copy-paste-result.png', { type:'image/png' });
+    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+      try{
+        await navigator.share({ files:[file], title:'קופי פייסט', text: `ציון: ${analysis.score}` });
+      }catch(e){ /* user cancelled */ }
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'copy-paste-result.png';
+      a.click();
+    }
+  }, 'image/png');
+});
+
+/* ===================== INIT ===================== */
+loadRefs();
+getLandmarker(); // warm up model in background
+</script>
+</body>
+</html>
