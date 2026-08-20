@@ -105,7 +105,13 @@
   .ref-meta{ font-size:12px; color:var(--muted); margin-top:2px; }
   .ref-actions{ display:flex; gap:8px; flex:none; }
   .ref-try{ background:var(--accent); color:#052421; border:none; border-radius:10px; padding:9px 14px; font-weight:700; font-size:13px; cursor:pointer; }
+  .ref-export{ background:transparent; border:none; color:var(--muted); font-size:15px; cursor:pointer; padding:9px; }
   .ref-del{ background:transparent; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:9px; }
+  .import-link{
+    display:flex; align-items:center; justify-content:center; gap:6px; width:100%; background:none; border:none;
+    color:var(--accent); font-family:'Heebo',sans-serif; font-size:13px; font-weight:700; cursor:pointer;
+    padding:10px; margin-bottom:22px; -webkit-appearance:none; appearance:none;
+  }
 
   .empty-state{ text-align:center; padding:40px 10px; color:var(--muted); font-size:14px; }
 
@@ -161,9 +167,12 @@
 
   .ref-preview-strip{
     display:flex; align-items:center; gap:10px; background:var(--bg-elev); border:1px solid var(--line);
-    border-radius:12px; padding:10px 12px; margin-bottom:14px;
+    border-radius:12px; padding:10px 12px; margin-bottom:14px; width:100%; cursor:pointer;
+    font-family:'Heebo',sans-serif; color:var(--text); text-align:right; -webkit-appearance:none; appearance:none;
   }
-  .ref-preview-strip video{ width:44px; height:44px; border-radius:8px; object-fit:cover; }
+  .ref-preview-strip video{ width:44px; height:44px; border-radius:8px; object-fit:cover; flex:none; }
+  .ref-preview-strip .rp-text{ flex:1; min-width:0; }
+  .ref-preview-strip .rp-play{ font-size:18px; color:var(--accent); flex:none; }
 
   /* ---- Loading / processing ---- */
   .processing{
@@ -228,7 +237,9 @@
   .joint-order-chip{
     flex:none; display:flex; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--line);
     border-radius:20px; padding:6px 12px; font-size:12px; white-space:nowrap;
+    font-family:'Heebo',sans-serif; color:var(--text); cursor:pointer; -webkit-appearance:none; appearance:none;
   }
+  .joint-order-chip:active{ background:var(--bg-elev-2); }
   .joint-order-num{
     width:16px; height:16px; border-radius:50%; background:var(--accent-dim); color:var(--accent);
     font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none;
@@ -272,6 +283,13 @@
   .correction-msg{ font-size:13.5px; line-height:1.5; }
   .correction-empty{ text-align:center; color:var(--muted); font-size:14px; padding:30px 10px; }
 
+  .lb-item{ display:flex; align-items:center; gap:12px; background:var(--bg-elev-2); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .lb-rank{ width:24px; height:24px; border-radius:50%; background:var(--accent-dim); color:var(--accent); font-family:'JetBrains Mono',monospace; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .lb-rank.gold{ background:#3d3410; color:#FFD24C; }
+  .lb-name{ flex:1; min-width:0; font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lb-meta{ font-size:11px; color:var(--muted); margin-top:2px; font-weight:400; }
+  .lb-score{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:18px; flex:none; }
+
   .hidden-video{ display:none; }
 
   a, a:visited{ color:var(--accent); }
@@ -300,6 +318,9 @@
       <div class="plus-badge">+</div>
     </div>
 
+    <button class="import-link" id="btnImportRef" type="button">📥 ייבוא תנועה שקיבלתי מהמורה</button>
+    <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;" />
+
     <div class="section-label">תנועות לדוגמה שמורות</div>
     <div class="ref-list" id="refList"></div>
     <div class="empty-state" id="emptyState">עדיין אין תנועות לדוגמה. הקליטו את הראשונה ⬆</div>
@@ -321,13 +342,15 @@
       <div class="cap-mode-pill" id="capModePill">לדוגמה</div>
     </div>
 
-    <div class="ref-preview-strip" id="attemptRefStrip" style="display:none;">
+    <button class="ref-preview-strip" id="attemptRefStrip" style="display:none;" type="button">
       <video id="attemptRefVideo" muted loop autoplay playsinline></video>
-      <div>
+      <div class="rp-text">
         <div style="font-size:13px;font-weight:700;" id="attemptRefName">—</div>
-        <div style="font-size:11px;color:var(--muted);">צפו בהדגמה, ואז בצעו אותה</div>
+        <div style="font-size:11px;color:var(--muted);">לחצו לצפייה מלאה · אפשר לחזור בכל שלב</div>
       </div>
-    </div>
+      <div class="rp-play">▶</div>
+    </button>
+    <input class="name-input" id="studentNameInput" placeholder="שם המתאמן/ת (אופציונלי)" style="display:none;" />
 
     <div class="camera-wrap" id="cameraWrap">
       <video id="liveVideo" autoplay playsinline muted></video>
@@ -404,6 +427,14 @@
 
     <div class="legend" id="legendRow"></div>
 
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+      <button class="btn btn-ghost" id="btnViewRefAgain" style="flex:1;">🎬 צפו שוב בדוגמה</button>
+      <button class="btn btn-ghost corrections-btn" id="btnLeaderboard" style="flex:1; margin-bottom:0;">
+        🏆 היסטוריית ניסיונות
+        <span class="corrections-badge" id="leaderboardBadge" style="display:none;">0</span>
+      </button>
+    </div>
+
     <button class="btn btn-ghost btn-block corrections-btn" id="btnCorrections">
       📋 תיקונים לביצוע
       <span class="corrections-badge" id="correctionsBadge" style="display:none;">0</span>
@@ -414,6 +445,26 @@
       <button class="btn btn-primary" id="btnShare">שיתוף</button>
     </div>
   </section>
+
+  <div class="modal-overlay" id="refViewModal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="refViewTitle">תנועת הדוגמה</div>
+        <button class="icon-btn" id="btnCloseRefView">✕</button>
+      </div>
+      <video id="refViewVideo" controls playsinline style="width:100%;border-radius:12px;background:#000;max-height:60vh;"></video>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="leaderboardModal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">היסטוריית ניסיונות</div>
+        <button class="icon-btn" id="btnCloseLeaderboard">✕</button>
+      </div>
+      <div class="modal-body" id="leaderboardList"></div>
+    </div>
+  </div>
 
   <div class="modal-overlay" id="correctionsModal">
     <div class="modal-sheet">
@@ -466,44 +517,52 @@ const JOINT_LABELS_HE = {
 const CONNECTIONS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
 
 /* ===================== INDEXEDDB ===================== */
-const DB_NAME='copypaste-db', DB_VERSION=1, STORE='references';
+const DB_NAME='copypaste-db', DB_VERSION=2, STORE='references', ATTEMPTS_STORE='attempts';
 function openDB(){
   return new Promise((res,rej)=>{
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'id'});
+      if(!db.objectStoreNames.contains(ATTEMPTS_STORE)) db.createObjectStore(ATTEMPTS_STORE,{keyPath:'id'});
     };
     req.onsuccess = () => res(req.result);
     req.onerror = () => rej(req.error);
   });
 }
-async function dbPut(rec){
+async function dbPut(rec, storeName){
   const db = await openDB();
   return new Promise((res,rej)=>{
-    const tx = db.transaction(STORE,'readwrite');
-    tx.objectStore(STORE).put(rec);
+    const tx = db.transaction(storeName||STORE,'readwrite');
+    tx.objectStore(storeName||STORE).put(rec);
     tx.oncomplete = () => res();
     tx.onerror = () => rej(tx.error);
   });
 }
-async function dbGetAll(){
+async function dbGetAll(storeName){
   const db = await openDB();
   return new Promise((res,rej)=>{
-    const tx = db.transaction(STORE,'readonly');
-    const req = tx.objectStore(STORE).getAll();
+    const tx = db.transaction(storeName||STORE,'readonly');
+    const req = tx.objectStore(storeName||STORE).getAll();
     req.onsuccess = () => res(req.result);
     req.onerror = () => rej(req.error);
   });
 }
-async function dbDelete(id){
+async function dbDelete(id, storeName){
   const db = await openDB();
   return new Promise((res,rej)=>{
-    const tx = db.transaction(STORE,'readwrite');
-    tx.objectStore(STORE).delete(id);
+    const tx = db.transaction(storeName||STORE,'readwrite');
+    tx.objectStore(storeName||STORE).delete(id);
     tx.oncomplete = () => res();
     tx.onerror = () => rej(tx.error);
   });
+}
+async function saveAttempt(refId, refName, studentName, score){
+  await dbPut({ id:'att_'+Date.now()+'_'+Math.random().toString(36).slice(2,7), refId, refName, studentName, score, createdAt: Date.now() }, ATTEMPTS_STORE);
+}
+async function getAttemptsForRef(refId){
+  const all = await dbGetAll(ATTEMPTS_STORE);
+  return all.filter(a => a.refId === refId).sort((a,b)=>b.score-a.score);
 }
 
 /* ===================== POSE LANDMARKER ===================== */
@@ -838,6 +897,16 @@ function findPeakStepIndex(refFrames, path){
   }
   return bestIdx;
 }
+/* Map a fraction-of-reference position to the shared/synced path index. */
+function pathIndexForRefFraction(path, refLen, frac){
+  const targetRefIdx = Math.round(frac * ((refLen-1)||1));
+  let bestK = 0, bestDiff = Infinity;
+  for(let k=0;k<path.length;k++){
+    const diff = Math.abs(path[k][0] - targetRefIdx);
+    if(diff < bestDiff){ bestDiff = diff; bestK = k; }
+  }
+  return bestK;
+}
 function checkOrder(refFrames, stuFrames){
   const mainJoints = JOINT_NAMES;
   const refOnsets = {}, stuOnsets = {};
@@ -1000,6 +1069,10 @@ const refNameInput = document.getElementById('refNameInput');
 const attemptRefStrip = document.getElementById('attemptRefStrip');
 const attemptRefVideo = document.getElementById('attemptRefVideo');
 const attemptRefName = document.getElementById('attemptRefName');
+const studentNameInput = document.getElementById('studentNameInput');
+const refViewModal = document.getElementById('refViewModal');
+const refViewVideo = document.getElementById('refViewVideo');
+const refViewTitle = document.getElementById('refViewTitle');
 const capTitle = document.getElementById('capTitle');
 const capModePill = document.getElementById('capModePill');
 const processingOverlay = document.getElementById('processingOverlay');
@@ -1024,6 +1097,26 @@ document.getElementById('btnFlipCam').addEventListener('click', () => {
   startCamera();
 });
 
+/* ---- Full reference video viewer - always reachable, not a one-time preview ---- */
+function openRefViewer(blob, title){
+  refViewTitle.textContent = title || 'תנועת הדוגמה';
+  refViewVideo.src = URL.createObjectURL(blob);
+  refViewModal.classList.add('show');
+  refViewVideo.play().catch(()=>{});
+}
+function closeRefViewer(){
+  refViewVideo.pause();
+  refViewModal.classList.remove('show');
+}
+document.getElementById('btnCloseRefView').addEventListener('click', closeRefViewer);
+refViewModal.addEventListener('click', (e) => { if(e.target.id === 'refViewModal') closeRefViewer(); });
+attemptRefStrip.addEventListener('click', () => {
+  if(activeAttemptRef) openRefViewer(activeAttemptRef.videoBlob, activeAttemptRef.name);
+});
+document.getElementById('btnViewRefAgain').addEventListener('click', () => {
+  if(analysis) openRefViewer(analysis.refBlob, activeAttemptRef ? activeAttemptRef.name : 'תנועת הדוגמה');
+});
+
 function resetCaptureUI(){
   recState = 'idle';
   if(typeof setCamState === 'function') setCamState(null);
@@ -1046,11 +1139,14 @@ function openCapture(mode, refRecord){
     capTitle.textContent = 'הקלטת תנועה לדוגמה';
     capModePill.textContent = 'לדוגמה';
     attemptRefStrip.style.display = 'none';
+    studentNameInput.style.display = 'none';
     refNameInput.style.display = 'none';
   } else {
     capTitle.textContent = 'הקלטת ביצוע';
     capModePill.textContent = 'תלמיד';
     attemptRefStrip.style.display = 'flex';
+    studentNameInput.style.display = 'block';
+    studentNameInput.value = '';
     refNameInput.style.display = 'none';
     attemptRefName.textContent = refRecord.name;
     const url = URL.createObjectURL(refRecord.videoBlob);
@@ -1234,6 +1330,9 @@ function capturePoster(blob){
 async function loadRefs(){
   refs = await dbGetAll();
   refs.sort((a,b)=>b.createdAt-a.createdAt);
+  const allAttempts = await dbGetAll(ATTEMPTS_STORE);
+  const attemptCounts = {};
+  for(const a of allAttempts) attemptCounts[a.refId] = (attemptCounts[a.refId]||0) + 1;
   const list = document.getElementById('refList');
   const empty = document.getElementById('emptyState');
   list.innerHTML = '';
@@ -1243,14 +1342,16 @@ async function loadRefs(){
     const card = document.createElement('div');
     card.className = 'ref-card';
     const dt = new Date(r.createdAt);
+    const count = attemptCounts[r.id] || 0;
     card.innerHTML = `
       <div class="ref-thumb" style="background-image:url('${r.poster||''}')"></div>
       <div class="ref-info">
         <div class="ref-name">${escapeHtml(r.name)}</div>
-        <div class="ref-meta">${r.duration.toFixed(1)} שנ׳ · ${dt.toLocaleDateString('he-IL')}</div>
+        <div class="ref-meta">${r.duration.toFixed(1)} שנ׳ · ${dt.toLocaleDateString('he-IL')}${count>0 ? ` · 🏆 ${count} ניסיונות` : ''}</div>
       </div>
       <div class="ref-actions">
         <button class="ref-try" data-id="${r.id}">נסה</button>
+        <button class="ref-export" data-id="${r.id}">📤</button>
         <button class="ref-del" data-id="${r.id}">🗑</button>
       </div>`;
     list.appendChild(card);
@@ -1259,6 +1360,12 @@ async function loadRefs(){
     btn.addEventListener('click', () => {
       const rec = refs.find(r=>r.id===btn.dataset.id);
       openCapture('attempt', rec);
+    });
+  });
+  list.querySelectorAll('.ref-export').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      const rec = refs.find(r=>r.id===btn.dataset.id);
+      exportReference(rec);
     });
   });
   list.querySelectorAll('.ref-del').forEach(btn=>{
@@ -1274,6 +1381,90 @@ function escapeHtml(s){
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* ===================== EXPORT / IMPORT (share a reference between devices) =====================
+   Everything is stored locally per browser/device, so to let a student train on
+   their own phone, the reference (video + already-computed pose data) is packaged
+   into a single file that can be sent (WhatsApp, email, AirDrop...) and imported. */
+function blobToBase64(blob){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+function base64ToBlob(base64, type){
+  const byteChars = atob(base64);
+  const byteNumbers = new Array(byteChars.length);
+  for(let i=0;i<byteChars.length;i++) byteNumbers[i] = byteChars.charCodeAt(i);
+  return new Blob([new Uint8Array(byteNumbers)], { type });
+}
+async function exportReference(refRecord){
+  processingOverlay.classList.add('show');
+  procText.textContent = 'מכין קובץ לשליחה…';
+  procPct.textContent = '';
+  try{
+    const videoBase64 = await blobToBase64(refRecord.videoBlob);
+    const payload = {
+      format: 'copypaste-ref-v1',
+      name: refRecord.name,
+      duration: refRecord.duration,
+      width: refRecord.width,
+      height: refRecord.height,
+      frames: refRecord.frames,
+      videoBase64,
+      videoType: refRecord.videoBlob.type || 'video/webm'
+    };
+    const jsonBlob = new Blob([JSON.stringify(payload)], { type:'application/json' });
+    const safeName = (refRecord.name||'tnua').replace(/[^\p{L}\p{N}_-]+/gu,'_').slice(0,40) || 'tnua';
+    const filename = `copypaste-${safeName}.json`;
+    const file = new File([jsonBlob], filename, { type:'application/json' });
+    processingOverlay.classList.remove('show');
+    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+      try{ await navigator.share({ files:[file], title:'קופי פייסט - ' + refRecord.name }); }
+      catch(e){ /* user cancelled */ }
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(jsonBlob);
+      a.download = filename;
+      a.click();
+    }
+  }catch(e){
+    processingOverlay.classList.remove('show');
+    alert('משהו השתבש ביצירת קובץ השליחה.');
+  }
+}
+document.getElementById('btnImportRef').addEventListener('click', () => {
+  document.getElementById('importFileInput').click();
+});
+document.getElementById('importFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  processingOverlay.classList.add('show');
+  procText.textContent = 'מייבא תנועה…';
+  procPct.textContent = '';
+  try{
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    if(payload.format !== 'copypaste-ref-v1' || !payload.videoBase64) throw new Error('bad format');
+    const videoBlob = base64ToBlob(payload.videoBase64, payload.videoType || 'video/webm');
+    const poster = await capturePoster(videoBlob);
+    const rec = {
+      id: 'ref_' + Date.now(),
+      name: payload.name || 'תנועה מיובאת',
+      createdAt: Date.now(),
+      videoBlob, frames: payload.frames, duration: payload.duration,
+      width: payload.width, height: payload.height, poster
+    };
+    await dbPut(rec);
+    await loadRefs();
+  }catch(err){
+    alert('לא ניתן לייבא את הקובץ - ודאו שזה קובץ שיוצא מקופי פייסט.');
+  }
+  processingOverlay.classList.remove('show');
+});
+
 /* ===================== COMPARISON PIPELINE ===================== */
 async function runComparison(refRecord, stuBlob){
   processingOverlay.classList.add('show');
@@ -1288,7 +1479,10 @@ async function runComparison(refRecord, stuBlob){
   const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refFrames, stuFrames);
   const corrections = buildCorrections(refFrames, stuFrames, path);
   const peakIndex = findPeakStepIndex(refFrames, path);
-  const jointOrder = buildJointOrderList(refFrames);
+  const jointOrder = buildJointOrderList(refFrames).map(j => ({
+    ...j,
+    pathIndex: pathIndexForRefFraction(path, refFrames.length, j.frac)
+  }));
 
   analysis = {
     refFrames, stuFrames,
@@ -1296,9 +1490,14 @@ async function runComparison(refRecord, stuBlob){
     stuDuration: stuData.duration,
     path, score, perJointAvg, perStepDeviation, corrections,
     peakIndex, jointOrder,
+    refId: refRecord.id, refName: refRecord.name,
     refBlob: refRecord.videoBlob,
     stuBlob: stuBlob
   };
+
+  const studentName = studentNameInput.value.trim() || 'מתאמן ללא שם';
+  analysis.studentName = studentName;
+  await saveAttempt(refRecord.id, refRecord.name, studentName, score);
 
   processingOverlay.classList.remove('show');
   renderResult();
@@ -1379,6 +1578,7 @@ async function renderResult(){
   legendRow.innerHTML = '';
   for(const name of JOINT_NAMES){
     const d = analysis.perJointAvg[name];
+    if(d == null) continue; // not lit - no data to show a note about
     const chip = document.createElement('div');
     chip.className = 'legend-chip';
     chip.innerHTML = `<span class="legend-dot" style="background:${devColor(d)}"></span>${JOINT_LABELS_HE[name]}`;
@@ -1388,8 +1588,47 @@ async function renderResult(){
   renderCorrections();
   renderPhaseTrack();
   renderJointOrder();
+  await renderLeaderboard();
   await renderStep(0);
 }
+
+async function renderLeaderboard(){
+  const attempts = await getAttemptsForRef(analysis.refId);
+  const badge = document.getElementById('leaderboardBadge');
+  const list = document.getElementById('leaderboardList');
+  if(attempts.length > 0){
+    badge.style.display = 'flex';
+    badge.textContent = attempts.length;
+  } else {
+    badge.style.display = 'none';
+  }
+  if(attempts.length === 0){
+    list.innerHTML = '<div class="correction-empty">אתם הראשונים שמנסים את התנועה הזו 🥇</div>';
+    return;
+  }
+  list.innerHTML = attempts.map((a, idx) => {
+    const dt = new Date(a.createdAt);
+    const isCurrent = a.studentName === analysis.studentName && a.score === analysis.score && Math.abs(a.createdAt - Date.now()) < 20000;
+    return `
+    <div class="lb-item" style="${isCurrent ? 'border-color:var(--accent);' : ''}">
+      <div class="lb-rank ${idx===0?'gold':''}">${idx+1}</div>
+      <div style="flex:1; min-width:0;">
+        <div class="lb-name">${escapeHtml(a.studentName)}</div>
+        <div class="lb-meta">${dt.toLocaleDateString('he-IL')}</div>
+      </div>
+      <div class="lb-score" style="color:${a.score>=80?'#00E5C7':a.score>=50?'#FFB020':'#FF3B5C'}">${a.score}</div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('btnLeaderboard').addEventListener('click', () => {
+  document.getElementById('leaderboardModal').classList.add('show');
+});
+document.getElementById('btnCloseLeaderboard').addEventListener('click', () => {
+  document.getElementById('leaderboardModal').classList.remove('show');
+});
+document.getElementById('leaderboardModal').addEventListener('click', (e) => {
+  if(e.target.id === 'leaderboardModal') e.currentTarget.classList.remove('show');
+});
 
 function renderPhaseTrack(){
   const len = analysis.path.length;
@@ -1420,9 +1659,15 @@ function renderJointOrder(){
     return;
   }
   analysis.jointOrder.forEach((j, idx) => {
-    const chip = document.createElement('div');
+    const chip = document.createElement('button');
     chip.className = 'joint-order-chip';
+    chip.type = 'button';
     chip.innerHTML = `<span class="joint-order-num">${idx+1}</span>${j.label}`;
+    chip.addEventListener('click', () => {
+      pausePlayback();
+      playIndex = j.pathIndex;
+      renderStep(j.pathIndex);
+    });
     row.appendChild(chip);
   });
 }
@@ -1497,6 +1742,9 @@ function pausePlayback(){
 function stopPlayback(){
   pausePlayback();
   closeZoom();
+  closeRefViewer();
+  document.getElementById('leaderboardModal').classList.remove('show');
+  document.getElementById('correctionsModal').classList.remove('show');
 }
 
 btnPlay.addEventListener('click', () => {
