@@ -128,6 +128,7 @@
   .camera-wrap.state-go{ box-shadow:0 0 0 4px var(--go) inset; }
   .camera-wrap.state-stop{ box-shadow:0 0 0 4px var(--bad) inset; }
   .camera-wrap video, .camera-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .camera-wrap video.mirrored{ transform:scaleX(-1); }
   .cam-flip{
     position:absolute; top:12px; left:12px; z-index:3; width:38px; height:38px; border-radius:50%;
     background:rgba(11,14,20,.6); border:1px solid rgba(255,255,255,.15); color:#fff; font-size:16px;
@@ -1087,6 +1088,7 @@ async function startCamera(){
       audio:false
     });
     liveVideo.srcObject = mediaStream;
+    liveVideo.classList.toggle('mirrored', currentFacing === 'user');
   }catch(e){
     alert('לא ניתן לגשת למצלמה. יש לאשר הרשאת מצלמה בדפדפן.');
   }
@@ -1266,6 +1268,7 @@ function onRecordingStopped(){
   liveControls.style.display='none';
   previewControls.style.display='block';
   liveVideo.srcObject = null;
+  liveVideo.classList.remove('mirrored'); // show the actual recorded (true) orientation
   liveVideo.src = URL.createObjectURL(lastRecordedBlob);
   liveVideo.muted = true; liveVideo.loop = true; liveVideo.play();
   if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
