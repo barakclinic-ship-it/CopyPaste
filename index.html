@@ -203,12 +203,36 @@
   .zoom-overlay.show{ display:flex; }
   .zoom-overlay canvas{ max-width:100%; max-height:100%; border-radius:16px; border:1px solid var(--line); }
 
-  .scrub-row{ display:flex; align-items:center; gap:10px; margin:6px 0 18px; }
+  .scrub-row{ display:flex; align-items:center; gap:10px; margin:6px 0 4px; }
   .play-btn{
     width:42px; height:42px; border-radius:50%; background:var(--bg-elev); border:1px solid var(--line);
     color:var(--text); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;
   }
   .scrub-row input[type=range]{ flex:1; accent-color:var(--accent); }
+
+  .phase-track{ position:relative; height:20px; margin:2px 4px 4px; }
+  .phase-line{ position:absolute; top:50%; right:0; left:0; height:2px; background:var(--line); transform:translateY(-50%); border-radius:2px; }
+  .phase-dot{
+    position:absolute; top:50%; width:14px; height:14px; border-radius:50%; border:2px solid var(--bg-elev);
+    transform:translate(50%,-50%); cursor:pointer; padding:0;
+  }
+  .phase-dot.start{ background:var(--accent); }
+  .phase-dot.peak{ background:var(--warn); }
+  .phase-dot.end{ background:var(--text); }
+  .phase-labels{ position:relative; height:14px; margin-bottom:14px; }
+  .phase-label{ position:absolute; top:0; transform:translateX(50%); font-size:10px; color:var(--muted); white-space:nowrap; }
+
+  .joint-order{ margin-bottom:16px; }
+  .joint-order-title{ font-size:12px; color:var(--muted); font-weight:700; margin-bottom:8px; }
+  .joint-order-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+  .joint-order-chip{
+    flex:none; display:flex; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--line);
+    border-radius:20px; padding:6px 12px; font-size:12px; white-space:nowrap;
+  }
+  .joint-order-num{
+    width:16px; height:16px; border-radius:50%; background:var(--accent-dim); color:var(--accent);
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none;
+  }
 
   .legend{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
   .legend-chip{
@@ -359,6 +383,23 @@
     <div class="scrub-row">
       <button class="play-btn" id="btnPlay">▶</button>
       <input type="range" id="scrubRange" min="0" max="0" value="0" step="1" />
+    </div>
+
+    <div class="phase-track" id="phaseTrack">
+      <div class="phase-line"></div>
+      <button class="phase-dot start" id="dotStart" title="התחלה"></button>
+      <button class="phase-dot peak" id="dotPeak" title="שיא התנועה"></button>
+      <button class="phase-dot end" id="dotEnd" title="סיום"></button>
+    </div>
+    <div class="phase-labels" id="phaseLabels">
+      <span class="phase-label" id="labelStart">התחלה</span>
+      <span class="phase-label" id="labelPeak">שיא</span>
+      <span class="phase-label" id="labelEnd">סיום</span>
+    </div>
+
+    <div class="joint-order">
+      <div class="joint-order-title">סדר הפעלת המפרקים (לפי הדוגמה)</div>
+      <div class="joint-order-row" id="jointOrderRow"></div>
     </div>
 
     <div class="legend" id="legendRow"></div>
@@ -774,6 +815,28 @@ function jointOnsetFraction(frames, jointName){
     if(Math.abs(vals[k]-base) > 12) return k/((n-1)||1);
   }
   return null;
+}
+function buildJointOrderList(frames){
+  const list = [];
+  for(const name of JOINT_NAMES){
+    const frac = jointOnsetFraction(frames, name);
+    if(frac != null) list.push({ name, label: JOINT_LABELS_HE[name], frac });
+  }
+  list.sort((a,b)=>a.frac-b.frac);
+  return list;
+}
+/* ---- Peak-of-movement step: the matched path index where the reference
+   is furthest from its own starting pose (synchronized by shared index) ---- */
+function findPeakStepIndex(refFrames, path){
+  if(path.length === 0) return 0;
+  const vecs = refFrames.map(f => frameVector(f.angles));
+  const startVec = vecs[path[0][0]];
+  let bestIdx = 0, bestVal = -1;
+  for(let k=0;k<path.length;k++){
+    const d = frameDist(vecs[path[k][0]], startVec);
+    if(d > bestVal){ bestVal = d; bestIdx = k; }
+  }
+  return bestIdx;
 }
 function checkOrder(refFrames, stuFrames){
   const mainJoints = JOINT_NAMES;
@@ -1224,12 +1287,15 @@ async function runComparison(refRecord, stuBlob){
   const { path } = dtw(refFrames, stuFrames);
   const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refFrames, stuFrames);
   const corrections = buildCorrections(refFrames, stuFrames, path);
+  const peakIndex = findPeakStepIndex(refFrames, path);
+  const jointOrder = buildJointOrderList(refFrames);
 
   analysis = {
     refFrames, stuFrames,
     refDuration: refRecord.duration,
     stuDuration: stuData.duration,
     path, score, perJointAvg, perStepDeviation, corrections,
+    peakIndex, jointOrder,
     refBlob: refRecord.videoBlob,
     stuBlob: stuBlob
   };
@@ -1256,6 +1322,7 @@ const zoomOverlay = document.getElementById('zoomOverlay');
 const zoomCanvas = document.getElementById('zoomCanvas');
 const zoomCtx = zoomCanvas.getContext('2d');
 function openZoom(side){
+  pausePlayback();
   zoomedSide = side;
   const src = side === 'ref' ? refCanvas : stuCanvas;
   zoomCanvas.width = src.width; zoomCanvas.height = src.height;
@@ -1263,7 +1330,29 @@ function openZoom(side){
   zoomOverlay.classList.add('show');
 }
 function closeZoom(){ zoomedSide = null; zoomOverlay.classList.remove('show'); }
-zoomOverlay.addEventListener('click', closeZoom);
+
+let zoomPointerStartX = null, zoomPointerStartY = null, zoomMoved = false;
+zoomOverlay.addEventListener('pointerdown', (e) => {
+  zoomPointerStartX = e.clientX; zoomPointerStartY = e.clientY; zoomMoved = false;
+});
+zoomOverlay.addEventListener('pointermove', (e) => {
+  if(zoomPointerStartX == null) return;
+  if(Math.abs(e.clientX - zoomPointerStartX) > 12) zoomMoved = true;
+});
+zoomOverlay.addEventListener('pointerup', (e) => {
+  if(zoomPointerStartX == null) return;
+  const dx = e.clientX - zoomPointerStartX;
+  const dy = e.clientY - (zoomPointerStartY || 0);
+  zoomPointerStartX = null;
+  if(!analysis || Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)*1.3){
+    if(!zoomMoved) closeZoom();
+    return;
+  }
+  pausePlayback();
+  if(dx < 0) playIndex = Math.min(analysis.path.length-1, playIndex+1); // swipe left -> next frame
+  else playIndex = Math.max(0, playIndex-1); // swipe right -> previous frame
+  renderStep(playIndex);
+});
 document.getElementById('refCanvasWrap').addEventListener('click', () => openZoom('ref'));
 document.getElementById('stuCanvasWrap').addEventListener('click', () => openZoom('stu'));
 
@@ -1297,7 +1386,45 @@ async function renderResult(){
   }
 
   renderCorrections();
+  renderPhaseTrack();
+  renderJointOrder();
   await renderStep(0);
+}
+
+function renderPhaseTrack(){
+  const len = analysis.path.length;
+  const lastIdx = Math.max(0, len-1);
+  const pct = (idx) => lastIdx===0 ? 0 : (idx/lastIdx)*100;
+  const dotStart = document.getElementById('dotStart');
+  const dotPeak = document.getElementById('dotPeak');
+  const dotEnd = document.getElementById('dotEnd');
+  const labelStart = document.getElementById('labelStart');
+  const labelPeak = document.getElementById('labelPeak');
+  const labelEnd = document.getElementById('labelEnd');
+  dotStart.style.right = pct(0)+'%';
+  dotPeak.style.right = pct(analysis.peakIndex)+'%';
+  dotEnd.style.right = pct(lastIdx)+'%';
+  labelStart.style.right = pct(0)+'%';
+  labelPeak.style.right = pct(analysis.peakIndex)+'%';
+  labelEnd.style.right = pct(lastIdx)+'%';
+}
+document.getElementById('dotStart').addEventListener('click', () => { pausePlayback(); playIndex=0; renderStep(0); });
+document.getElementById('dotPeak').addEventListener('click', () => { pausePlayback(); playIndex=analysis.peakIndex; renderStep(analysis.peakIndex); });
+document.getElementById('dotEnd').addEventListener('click', () => { pausePlayback(); const li=analysis.path.length-1; playIndex=li; renderStep(li); });
+
+function renderJointOrder(){
+  const row = document.getElementById('jointOrderRow');
+  row.innerHTML = '';
+  if(!analysis.jointOrder || analysis.jointOrder.length===0){
+    row.innerHTML = '<div style="font-size:12px;color:var(--muted);">לא זוהתה תזוזה מובהקת מספיק במפרקים כדי לקבוע סדר</div>';
+    return;
+  }
+  analysis.jointOrder.forEach((j, idx) => {
+    const chip = document.createElement('div');
+    chip.className = 'joint-order-chip';
+    chip.innerHTML = `<span class="joint-order-num">${idx+1}</span>${j.label}`;
+    row.appendChild(chip);
+  });
 }
 
 function renderCorrections(){
@@ -1364,8 +1491,11 @@ function playLoop(){
   }
   playTimer = setTimeout(playLoop, 140);
 }
+function pausePlayback(){
+  playing = false; clearTimeout(playTimer); btnPlay.textContent = '▶';
+}
 function stopPlayback(){
-  playing = false; clearTimeout(playTimer);
+  pausePlayback();
   closeZoom();
 }
 
@@ -1376,7 +1506,7 @@ btnPlay.addEventListener('click', () => {
   if(playing) playLoop();
 });
 scrubRange.addEventListener('input', () => {
-  stopPlayback(); btnPlay.textContent = '▶';
+  pausePlayback();
   playIndex = Number(scrubRange.value);
   renderStep(playIndex);
 });
@@ -1386,27 +1516,111 @@ document.getElementById('btnRetry').addEventListener('click', () => {
   openCapture('attempt', activeAttemptRef);
 });
 
+async function buildShareVideo(){
+  const compW = refCanvas.width + stuCanvas.width;
+  const headerH = 92;
+  const compH = Math.max(refCanvas.height, stuCanvas.height) + headerH;
+  const comp = document.createElement('canvas');
+  comp.width = compW; comp.height = compH;
+  const cctx = comp.getContext('2d');
+
+  function drawHeader(){
+    cctx.fillStyle = '#0B0E14'; cctx.fillRect(0, 0, compW, headerH);
+    cctx.textAlign = 'center';
+    cctx.fillStyle = '#00E5C7';
+    cctx.font = "700 22px 'Space Grotesk', sans-serif";
+    cctx.fillText('קופי פייסט', compW/2, 32);
+    cctx.fillStyle = analysis.score>=80 ? '#00E5C7' : analysis.score>=50 ? '#FFB020' : '#FF3B5C';
+    cctx.font = "700 30px 'JetBrains Mono', monospace";
+    cctx.fillText(String(analysis.score), compW/2, 70);
+    cctx.fillStyle = '#8A93A6';
+    cctx.font = "500 12px 'Heebo', sans-serif";
+    cctx.fillText('לדוגמה', refCanvas.width/2, headerH-6);
+    cctx.fillText('הביצוע שלך', refCanvas.width + stuCanvas.width/2, headerH-6);
+  }
+
+  const stream = comp.captureStream(8);
+  let mimeType = 'video/webm;codecs=vp9';
+  if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8';
+  if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+  const rec = new MediaRecorder(stream, { mimeType });
+  const chunks = [];
+  rec.ondataavailable = (e) => { if(e.data.size>0) chunks.push(e.data); };
+  const stopped = new Promise((res) => { rec.onstop = res; });
+  rec.start();
+
+  const maxFrames = 45;
+  const step = Math.max(1, Math.floor(analysis.path.length / maxFrames));
+  for(let idx=0; idx<analysis.path.length; idx+=step){
+    const [i,j] = analysis.path[idx];
+    const refF = analysis.refFrames[i], stuF = analysis.stuFrames[j];
+    await seekTo(refPlayerVideo, refF.t);
+    await seekTo(stuPlayerVideo, stuF.t);
+    cctx.clearRect(0,0,compW,compH);
+    drawHeader();
+    cctx.save(); cctx.translate(0, headerH);
+    cctx.drawImage(refPlayerVideo, 0, 0, refCanvas.width, refCanvas.height);
+    drawSkeleton(cctx, refF.landmarks, null, refCanvas.width, refCanvas.height, true);
+    cctx.restore();
+    cctx.save(); cctx.translate(refCanvas.width, headerH);
+    cctx.drawImage(stuPlayerVideo, 0, 0, stuCanvas.width, stuCanvas.height);
+    drawSkeleton(cctx, stuF.landmarks, analysis.perStepDeviation[idx], stuCanvas.width, stuCanvas.height, false);
+    cctx.restore();
+    procPct.textContent = Math.round((idx/analysis.path.length)*100)+'%';
+    await new Promise(r=>setTimeout(r, 90));
+  }
+  // hold the last frame briefly so the recorder captures it
+  await new Promise(r=>setTimeout(r, 400));
+  rec.stop();
+  await stopped;
+  return new Blob(chunks, { type:'video/webm' });
+}
+
+function buildShareImage(){
+  return new Promise((resolve) => {
+    const compW = refCanvas.width + stuCanvas.width;
+    const headerH = 60;
+    const comp = document.createElement('canvas');
+    comp.width = compW; comp.height = Math.max(refCanvas.height, stuCanvas.height) + headerH;
+    const cctx = comp.getContext('2d');
+    cctx.fillStyle = '#0B0E14'; cctx.fillRect(0,0,comp.width, comp.height);
+    cctx.textAlign = 'center';
+    cctx.fillStyle = analysis.score>=80 ? '#00E5C7' : analysis.score>=50 ? '#FFB020' : '#FF3B5C';
+    cctx.font = "700 30px 'JetBrains Mono', monospace";
+    cctx.fillText(`ציון: ${analysis.score}`, compW/2, 40);
+    cctx.drawImage(refCanvas, 0, headerH);
+    cctx.drawImage(stuCanvas, refCanvas.width, headerH);
+    comp.toBlob((blob) => resolve(blob), 'image/png');
+  });
+}
+
 document.getElementById('btnShare').addEventListener('click', async () => {
-  const composite = document.createElement('canvas');
-  composite.width = refCanvas.width + stuCanvas.width;
-  composite.height = Math.max(refCanvas.height, stuCanvas.height);
-  const cctx = composite.getContext('2d');
-  cctx.fillStyle = '#0B0E14'; cctx.fillRect(0,0,composite.width, composite.height);
-  cctx.drawImage(refCanvas, 0, 0);
-  cctx.drawImage(stuCanvas, refCanvas.width, 0);
-  composite.toBlob(async (blob) => {
-    const file = new File([blob], 'copy-paste-result.png', { type:'image/png' });
-    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
-      try{
-        await navigator.share({ files:[file], title:'קופי פייסט', text: `ציון: ${analysis.score}` });
-      }catch(e){ /* user cancelled */ }
-    } else {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'copy-paste-result.png';
-      a.click();
-    }
-  }, 'image/png');
+  if(!analysis) return;
+  pausePlayback();
+  processingOverlay.classList.add('show');
+  procText.textContent = 'יוצר סרטון השוואה לשיתוף…';
+  procPct.textContent = '0%';
+  let blob, filename, mime;
+  try{
+    blob = await buildShareVideo();
+    filename = 'copy-paste-result.webm';
+    mime = 'video/webm';
+  }catch(e){
+    blob = await buildShareImage();
+    filename = 'copy-paste-result.png';
+    mime = 'image/png';
+  }
+  processingOverlay.classList.remove('show');
+  const file = new File([blob], filename, { type: mime });
+  if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+    try{ await navigator.share({ files:[file], title:'קופי פייסט', text:`ציון: ${analysis.score}` }); }
+    catch(e){ /* user cancelled */ }
+  } else {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  }
 });
 
 /* ===================== INIT ===================== */
