@@ -128,6 +128,7 @@
   .camera-wrap.state-go{ box-shadow:0 0 0 4px var(--go) inset; }
   .camera-wrap.state-stop{ box-shadow:0 0 0 4px var(--bad) inset; }
   .camera-wrap video, .camera-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #previewCanvas{ pointer-events:none; }
   .camera-wrap video.mirrored{ transform:scaleX(-1); }
   .mirrored{ transform:scaleX(-1); }
   .cam-flip{
@@ -364,7 +365,7 @@
 
     <div class="camera-wrap" id="cameraWrap">
       <video id="liveVideo" autoplay playsinline muted></video>
-      <canvas id="previewCanvas" style="display:none;"></canvas>
+      <canvas id="previewCanvas"></canvas>
       <button class="cam-flip" id="btnFlipCam">⟲</button>
       <div class="timer-badge" id="timerBadge"><span class="timer-dot"></span><span id="timerText">0:00</span></div>
       <div class="countdown-num" id="countdownNum" style="display:none;"></div>
@@ -436,8 +437,6 @@
       <div class="joint-order-row" id="jointOrderRow"></div>
       <div class="joint-inspect" id="jointInspectPanel"></div>
     </div>
-
-    <div class="legend" id="legendRow"></div>
 
     <div style="display:flex; gap:10px; margin-bottom:10px;">
       <button class="btn btn-ghost" id="btnViewRefAgain" style="flex:1;">צפייה בדוגמה</button>
@@ -1084,6 +1083,34 @@ function drawSkeleton(ctx, landmarks, stepDev, w, h, isReference){
     ctx.lineWidth=2; ctx.strokeStyle='#0B0E14'; ctx.stroke();
   }
 }
+function jointScreenPoint(landmarks, jointName, w, h){
+  if(jointName === 'Torso'){
+    const ls = getPt(landmarks,11), rs = getPt(landmarks,12);
+    if(!ls||!rs) return null;
+    return { x:(ls.x+rs.x)/2*w, y:(ls.y+rs.y)/2*h };
+  }
+  const jointDef = JOINTS.find(jd => jd[0] === jointName);
+  if(!jointDef) return null;
+  const p = getPt(landmarks, jointDef[2]);
+  return p ? { x:p.x*w, y:p.y*h } : null;
+}
+/* Numbered badges for the joints the person has toggled "lit" in the order list. */
+function drawJointBadges(ctx, landmarks, w, h, jointOrderList){
+  if(!landmarks || !jointOrderList || litJoints.size === 0) return;
+  jointOrderList.forEach((j, idx) => {
+    if(!litJoints.has(j.name)) return;
+    const p = jointScreenPoint(landmarks, j.name, w, h);
+    if(!p) return;
+    const bx = p.x, by = p.y - 18;
+    ctx.beginPath(); ctx.arc(bx, by, 10, 0, Math.PI*2);
+    ctx.fillStyle = '#00E5C7'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#052421'; ctx.stroke();
+    ctx.fillStyle = '#052421';
+    ctx.font = "700 12px 'JetBrains Mono', monospace";
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(idx+1), bx, by+1);
+  });
+}
 
 /* ===================== APP STATE / UI ===================== */
 const screens = {
@@ -1128,6 +1155,7 @@ const capModePill = document.getElementById('capModePill');
 const processingOverlay = document.getElementById('processingOverlay');
 const procPct = document.getElementById('procPct');
 const procText = document.getElementById('procText');
+const previewCanvas = document.getElementById('previewCanvas');
 
 async function startCamera(){
   if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); }
@@ -1138,9 +1166,41 @@ async function startCamera(){
     });
     liveVideo.srcObject = mediaStream;
     liveVideo.classList.toggle('mirrored', currentFacing === 'user');
+    previewCanvas.classList.toggle('mirrored', currentFacing === 'user');
   }catch(e){
     alert('לא ניתן לגשת למצלמה. יש לאשר הרשאת מצלמה בדפדפן.');
   }
+}
+
+/* ---- Live skeleton overlay - runs continuously on whatever liveVideo is
+   currently showing (the live stream, or the just-recorded clip while
+   reviewing it), so pose tracking is visible during capture, not just
+   after full analysis. ---- */
+let liveLoopActive = false;
+async function startLiveSkeletonLoop(){
+  liveLoopActive = true;
+  const lm = await getLandmarker();
+  const pctx = previewCanvas.getContext('2d');
+  async function tick(){
+    if(!liveLoopActive) return;
+    if(liveVideo.readyState >= 2 && liveVideo.videoWidth){
+      if(previewCanvas.width !== liveVideo.videoWidth) previewCanvas.width = liveVideo.videoWidth;
+      if(previewCanvas.height !== liveVideo.videoHeight) previewCanvas.height = liveVideo.videoHeight;
+      try{
+        const result = lm.detect(liveVideo);
+        const landmarks = result && result.landmarks && result.landmarks[0] ? result.landmarks[0] : null;
+        pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        if(landmarks) drawSkeleton(pctx, landmarks, null, previewCanvas.width, previewCanvas.height, true);
+      }catch(e){ /* skip frame */ }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+function stopLiveSkeletonLoop(){
+  liveLoopActive = false;
+  const pctx = previewCanvas.getContext('2d');
+  pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
 }
 
 document.getElementById('btnFlipCam').addEventListener('click', () => {
@@ -1207,10 +1267,12 @@ function openCapture(mode, refRecord){
   }
   showScreen('capture');
   startCamera();
+  startLiveSkeletonLoop();
 }
 
 document.getElementById('btnCreateRef').addEventListener('click', () => openCapture('reference'));
 document.getElementById('btnBackFromCapture').addEventListener('click', () => {
+  stopLiveSkeletonLoop();
   if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
   showScreen('home');
 });
@@ -1358,8 +1420,10 @@ document.getElementById('btnUsePreview').addEventListener('click', async () => {
     await dbPut(rec);
     processingOverlay.classList.remove('show');
     await loadRefs();
+    stopLiveSkeletonLoop();
     showScreen('home');
   } else {
+    stopLiveSkeletonLoop();
     await runComparison(activeAttemptRef, lastRecordedBlob, lastRecordingFacing);
   }
 });
@@ -1571,7 +1635,6 @@ const stuPlayerVideo = document.getElementById('stuPlayerVideo');
 const scrubRange = document.getElementById('scrubRange');
 const btnPlay = document.getElementById('btnPlay');
 const scoreNum = document.getElementById('scoreNum');
-const legendRow = document.getElementById('legendRow');
 
 /* ---- Tap either video to zoom just that one ---- */
 let zoomedSide = null;
@@ -1635,16 +1698,6 @@ async function renderResult(){
   playIndex = 0;
   playing = false;
   btnPlay.textContent = '▶';
-
-  legendRow.innerHTML = '';
-  for(const name of JOINT_NAMES){
-    const d = analysis.perJointAvg[name];
-    if(d == null) continue; // not lit - no data to show a note about
-    const chip = document.createElement('div');
-    chip.className = 'legend-chip';
-    chip.innerHTML = `<span class="legend-dot" style="background:${devColor(d)}"></span>${JOINT_LABELS_HE[name]}`;
-    legendRow.appendChild(chip);
-  }
 
   renderCorrections();
   renderPhaseTrack();
@@ -1815,11 +1868,13 @@ async function renderStep(idx){
   refCtx.clearRect(0,0,refCanvas.width, refCanvas.height);
   refCtx.drawImage(refPlayerVideo, 0,0, refCanvas.width, refCanvas.height);
   drawSkeleton(refCtx, refF.landmarks, null, refCanvas.width, refCanvas.height, true);
+  drawJointBadges(refCtx, refF.landmarks, refCanvas.width, refCanvas.height, analysis.jointOrder);
 
   await seekTo(stuPlayerVideo, stuF.t);
   stuCtx.clearRect(0,0,stuCanvas.width, stuCanvas.height);
   stuCtx.drawImage(stuPlayerVideo, 0,0, stuCanvas.width, stuCanvas.height);
   drawSkeleton(stuCtx, stuF.landmarks, analysis.perStepDeviation[idx], stuCanvas.width, stuCanvas.height, false);
+  drawJointBadges(stuCtx, stuF.landmarks, stuCanvas.width, stuCanvas.height, analysis.jointOrder);
 
   if(zoomedSide){
     const src = zoomedSide === 'ref' ? refCanvas : stuCanvas;
