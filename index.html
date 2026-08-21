@@ -446,11 +446,6 @@
       </button>
     </div>
 
-    <button class="btn btn-ghost btn-block corrections-btn" id="btnCorrections">
-      תיקונים לביצוע
-      <span class="corrections-badge" id="correctionsBadge" style="display:none;">0</span>
-    </button>
-
     <div class="result-actions">
       <button class="btn btn-ghost" id="btnRetry">נסה שוב</button>
       <button class="btn btn-primary" id="btnShare">שיתוף</button>
@@ -474,16 +469,6 @@
         <button class="icon-btn" id="btnCloseLeaderboard">✕</button>
       </div>
       <div class="modal-body" id="leaderboardList"></div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="correctionsModal">
-    <div class="modal-sheet">
-      <div class="modal-header">
-        <div class="modal-title">תיקונים לביצוע</div>
-        <button class="icon-btn" id="btnCloseCorrections">✕</button>
-      </div>
-      <div class="modal-body" id="correctionsList"></div>
     </div>
   </div>
 
@@ -780,26 +765,34 @@ function devColor(d){
   return '#FF3B5C';
 }
 
-/* ===================== CORRECTIONS RULE ENGINE =====================
-   Instead of hard-coded exercises, rules are auto-mined from the reference
-   take itself: any point-to-point relationship the reference keeps
-   consistent (low variance) throughout the movement is treated as
-   "intentional" and checked against the student's attempt. */
+/* ===================== TRACKED POINTS =====================
+   Real landmark points (not derived angles) tracked individually, the way
+   Tracking Point did - order of onset, speed, trajectory range, and one
+   proportional/positional check where relevant. Only shown when the person
+   lights up that specific chip. */
 const LM = { NOSE:0, L_SH:11,R_SH:12, L_EL:13,R_EL:14, L_WR:15,R_WR:16,
-             L_HIP:23,R_HIP:24, L_KNEE:25,R_KNEE:26, L_ANK:27,R_ANK:28, L_TOE:31,R_TOE:32 };
+             L_FT:19,R_FT:20, L_HIP:23,R_HIP:24, L_KNEE:25,R_KNEE:26,
+             L_HEEL:29,R_HEEL:30, L_ANK:27,R_ANK:28, L_TOE:31,R_TOE:32 };
 const SIDE_LABEL = { L:'שמאלית', R:'ימנית' };
+const TRACK_POINTS = [
+  ['head', LM.NOSE, 'ראש'],
+  ['L_shoulder', LM.L_SH, 'כתף שמאל'], ['R_shoulder', LM.R_SH, 'כתף ימין'],
+  ['L_elbow', LM.L_EL, 'מרפק שמאל'], ['R_elbow', LM.R_EL, 'מרפק ימין'],
+  ['L_wrist', LM.L_WR, 'שורש כף יד שמאל'], ['R_wrist', LM.R_WR, 'שורש כף יד ימין'],
+  ['L_fingertip', LM.L_FT, 'קצות אצבעות יד שמאל'], ['R_fingertip', LM.R_FT, 'קצות אצבעות יד ימין'],
+  ['L_hip', LM.L_HIP, 'אגן שמאל'], ['R_hip', LM.R_HIP, 'אגן ימין'],
+  ['L_knee', LM.L_KNEE, 'ברך שמאל'], ['R_knee', LM.R_KNEE, 'ברך ימין'],
+  ['L_ankle', LM.L_ANK, 'קרסול שמאל'], ['R_ankle', LM.R_ANK, 'קרסול ימין'],
+  ['L_toe', LM.L_TOE, 'קצות אצבעות רגל שמאל'], ['R_toe', LM.R_TOE, 'קצות אצבעות רגל ימין'],
+];
+const TRACK_POINT_IDX = Object.fromEntries(TRACK_POINTS.map(p=>[p[0],p[1]]));
+const TRACK_POINT_LABEL = Object.fromEntries(TRACK_POINTS.map(p=>[p[0],p[2]]));
 
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 function torsoScale(lm){
   const ls=getPt(lm,LM.L_SH), rs=getPt(lm,LM.R_SH), lh=getPt(lm,LM.L_HIP), rh=getPt(lm,LM.R_HIP);
   if(!ls||!rs||!lh||!rh) return null;
   const d = dist({x:(ls.x+rs.x)/2,y:(ls.y+rs.y)/2},{x:(lh.x+rh.x)/2,y:(lh.y+rh.y)/2});
-  return d>0.01 ? d : null;
-}
-function legScale(lm, side){
-  const hip=getPt(lm, side==='L'?LM.L_HIP:LM.R_HIP), ank=getPt(lm, side==='L'?LM.L_ANK:LM.R_ANK);
-  if(!hip||!ank) return null;
-  const d = dist(hip,ank);
   return d>0.01 ? d : null;
 }
 function shoulderWidth(lm){
@@ -809,131 +802,32 @@ function shoulderWidth(lm){
   return d>0.01 ? d : null;
 }
 
-function buildRelationRules(){
-  const rules = [];
-  for(const S of ['L','R']){
-    const WR = S==='L'?LM.L_WR:LM.R_WR, SH = S==='L'?LM.L_SH:LM.R_SH,
-          EL = S==='L'?LM.L_EL:LM.R_EL, HIP = S==='L'?LM.L_HIP:LM.R_HIP,
-          KNEE = S==='L'?LM.L_KNEE:LM.R_KNEE, TOE = S==='L'?LM.L_TOE:LM.R_TOE;
-    rules.push({
-      id:`wristSh_${S}`, kind:'continuous', side:S,
-      label:`גובה כף היד ה${SIDE_LABEL[S]} ביחס לכתף`,
-      compute:(lm)=>{ const w=getPt(lm,WR), sh=getPt(lm,SH), sc=torsoScale(lm); return (w&&sh&&sc) ? (w.y-sh.y)/sc : null; },
-      msgHigh:()=>`כף היד ה${SIDE_LABEL[S]} יורדת נמוך מדי - הרימו אותה לגובה הכתף כמו בדוגמה`,
-      msgLow:()=>`כף היד ה${SIDE_LABEL[S]} גבוהה מדי - הורידו אותה לגובה הכתף כמו בדוגמה`,
-    });
-    rules.push({
-      id:`kneeToe_${S}`, kind:'continuous', side:S,
-      label:`הברך ה${SIDE_LABEL[S]} ביחס לקו האצבעות`,
-      compute:(lm)=>{ const k=getPt(lm,KNEE), t=getPt(lm,TOE), sc=legScale(lm,S); return (k&&t&&sc) ? (k.x-t.x)/sc : null; },
-      msgHigh:()=>`הברך ה${SIDE_LABEL[S]} מתקדמת יותר מדי לפני קו האצבעות ביחס לדוגמה`,
-      msgLow:()=>`הברך ה${SIDE_LABEL[S]} נשארת מאחורי קו האצבעות - קדמו אותה כמו בדוגמה`,
-    });
-    rules.push({
-      id:`elbowBody_${S}`, kind:'continuous', side:S,
-      label:`מרחק המרפק ה${SIDE_LABEL[S]} מהגוף`,
-      compute:(lm)=>{ const e=getPt(lm,EL), h=getPt(lm,HIP), sc=torsoScale(lm); return (e&&h&&sc) ? dist(e,h)/sc : null; },
-      msgHigh:()=>`המרפק ה${SIDE_LABEL[S]} פתוח מדי מהגוף - קרבו אותו כמו בדוגמה`,
-      msgLow:()=>`המרפק ה${SIDE_LABEL[S]} צמוד מדי לגוף - פתחו אותו מעט כמו בדוגמה`,
-    });
-    rules.push({
-      id:`crossCenter_${S}`, kind:'peak', side:S,
-      label:`חצייה של קו מרכז הגוף עם כף היד ה${SIDE_LABEL[S]}`,
-      compute:(lm)=>{
-        const w=getPt(lm,WR), lh=getPt(lm,LM.L_HIP), rh=getPt(lm,LM.R_HIP), sc=torsoScale(lm);
-        if(!w||!lh||!rh||!sc) return null;
-        return Math.abs(((lh.x+rh.x)/2) - w.x)/sc;
-      },
-      msgLow:()=>`כף היד ה${SIDE_LABEL[S]} לא חצתה מספיק את קו מרכז הגוף ביחס לדוגמה`,
-    });
-  }
-  rules.push({
-    id:'stanceWidth', kind:'continuous',
-    label:'רוחב העמידה בין כפות הרגליים',
-    compute:(lm)=>{ const a=getPt(lm,LM.L_ANK), b=getPt(lm,LM.R_ANK), sc=shoulderWidth(lm); return (a&&b&&sc) ? dist(a,b)/sc : null; },
-    msgHigh:()=>`העמידה רחבה מדי ביחס לדוגמה - צמצמו מעט את המרחק בין הרגליים`,
-    msgLow:()=>`העמידה צרה מדי ביחס לדוגמה - פתחו מעט יותר את הרגליים`,
-  });
-  return rules;
-}
-
-function mineAndCheckRules(refFrames, stuFrames, path){
-  const rules = buildRelationRules();
-  const results = [];
-  for(const rule of rules){
-    const refVals = refFrames.map(f => f.landmarks ? rule.compute(f.landmarks) : null).filter(v=>v!=null);
-    if(refVals.length < Math.max(4, refFrames.length*0.4)) continue; // not enough visible data in the reference
-
-    if(rule.kind === 'continuous'){
-      const mean = refVals.reduce((a,b)=>a+b,0)/refVals.length;
-      const variance = refVals.reduce((a,b)=>a+(b-mean)**2,0)/refVals.length;
-      const std = Math.sqrt(variance);
-      if(std > 0.22) continue; // reference itself isn't consistent here - not a real rule
-      const tol = Math.max(0.12, std*2.2);
-      let violCount=0, matched=0, sumSigned=0;
-      for(const [i,j] of path){
-        const stuLm = stuFrames[j].landmarks;
-        if(!stuLm) continue;
-        const v = rule.compute(stuLm);
-        if(v==null) continue;
-        matched++;
-        const diff = v - mean;
-        sumSigned += diff;
-        if(Math.abs(diff) > tol) violCount++;
-      }
-      if(matched < 4) continue;
-      const fracViol = violCount/matched;
-      if(fracViol >= 0.3){
-        const avgSigned = sumSigned/matched;
-        results.push({ label: rule.label, severity: fracViol, message: avgSigned > 0 ? rule.msgHigh() : rule.msgLow() });
-      }
-    } else if(rule.kind === 'peak'){
-      const refPeak = Math.max(...refVals);
-      if(refPeak < 0.28) continue; // not a meaningful reach/extension in the reference
-      let stuPeak = -Infinity, any=false;
-      for(const [i,j] of path){
-        const stuLm = stuFrames[j].landmarks;
-        if(!stuLm) continue;
-        const v = rule.compute(stuLm);
-        if(v==null) continue;
-        any = true;
-        if(v > stuPeak) stuPeak = v;
-      }
-      if(!any) continue;
-      const tol = Math.max(0.1, refPeak*0.22);
-      if(stuPeak < refPeak - tol){
-        results.push({ label: rule.label, severity: (refPeak-stuPeak)/refPeak, message: rule.msgLow() });
-      }
-    }
-  }
-  results.sort((a,b)=>b.severity-a.severity);
-  return results.slice(0,6);
-}
-
-/* ---- Movement-order check: which joint should move before which ---- */
-function jointOnsetFraction(frames, jointName){
-  const vals = frames.map(f => f.angles ? f.angles[jointName] : null);
-  const firstValid = vals.findIndex(v=>v!=null);
+/* ---- Onset: when does a specific point start actually moving (position-based) ---- */
+function pointOnsetFraction(frames, idx){
+  const pts = frames.map(f => f.landmarks ? getPt(f.landmarks, idx) : null);
+  const firstValid = pts.findIndex(p=>p!=null);
   if(firstValid === -1) return null;
-  const base = vals[firstValid];
-  const n = vals.length;
-  for(let k=firstValid;k<n;k++){
-    if(vals[k]==null) continue;
-    if(Math.abs(vals[k]-base) > 12) return k/((n-1)||1);
+  const base = pts[firstValid];
+  const n = pts.length;
+  for(let k=firstValid; k<n; k++){
+    const p = pts[k];
+    if(!p) continue;
+    const sc = torsoScale(frames[k].landmarks) || 0.3;
+    if(dist(p, base)/sc > 0.3) return k/((n-1)||1);
   }
   return null;
 }
-function buildJointOrderList(frames){
+function buildPointOrderList(frames){
   const list = [];
-  for(const name of JOINT_NAMES){
-    const frac = jointOnsetFraction(frames, name);
-    if(frac != null) list.push({ name, label: JOINT_LABELS_HE[name], frac });
+  for(const [name,,label] of TRACK_POINTS){
+    const frac = pointOnsetFraction(frames, TRACK_POINT_IDX[name]);
+    if(frac != null) list.push({ name, label, frac });
   }
   list.sort((a,b)=>a.frac-b.frac);
   return list;
 }
-/* ---- Peak-of-movement step: the matched path index where the reference
-   is furthest from its own starting pose (synchronized by shared index) ---- */
+/* ---- Peak-of-movement step: matched path index where the reference is
+   furthest from its own starting pose (shared index = synchronized) ---- */
 function findPeakStepIndex(refFrames, path){
   if(path.length === 0) return 0;
   const vecs = refFrames.map(f => frameVector(f.angles));
@@ -955,92 +849,220 @@ function pathIndexForRefFraction(path, refLen, frac){
   }
   return bestK;
 }
-function checkOrder(refFrames, stuFrames){
-  const mainJoints = JOINT_NAMES;
-  const refOnsets = {}, stuOnsets = {};
-  for(const j of mainJoints){
-    refOnsets[j] = jointOnsetFraction(refFrames, j);
-    stuOnsets[j] = jointOnsetFraction(stuFrames, j);
-  }
-  const results = [];
-  for(const A of mainJoints){
-    for(const B of mainJoints){
-      if(A===B) continue;
-      if(refOnsets[A]==null || refOnsets[B]==null) continue;
-      const gapRef = refOnsets[B] - refOnsets[A];
-      if(gapRef < 0.12) continue; // no clear order in the reference for this pair
-      if(stuOnsets[A]==null || stuOnsets[B]==null) continue;
-      const gapStu = stuOnsets[B] - stuOnsets[A];
-      if(gapStu < 0.02){
-        results.push({
-          severity: gapRef,
-          message: `שימו לב לסדר התנועה: ${JOINT_LABELS_HE[A]} אמור לזוז לפני ${JOINT_LABELS_HE[B]}, ובביצוע שלכם הם זזו כמעט יחד או בסדר הפוך`
-        });
-      }
+
+/* ---- Per-point trajectory stats: total distance traveled + average speed,
+   independent of DTW warping (computed on each recording's own frames). ---- */
+function pointTrajectoryStats(frames, idx){
+  let totalDist = 0, prev = null, prevValid = false;
+  for(const f of frames){
+    const p = f.landmarks ? getPt(f.landmarks, idx) : null;
+    if(p && prevValid){
+      const sc = torsoScale(f.landmarks) || 0.3;
+      totalDist += dist(p, prev) / sc;
     }
+    if(p){ prev = p; prevValid = true; }
   }
-  results.sort((a,b)=>b.severity-a.severity);
-  return results.slice(0,3);
+  const duration = frames.length>1 ? Math.max(0.01, frames[frames.length-1].t - frames[0].t) : 1;
+  return { totalDist, avgSpeed: totalDist/duration };
 }
 
-/* ---- Endpoint check: did the student complete the full range ---- */
-function checkEndpoint(refFrames, stuFrames, path){
-  if(path.length===0) return null;
-  const lastN = Math.min(3, path.length);
-  let sum=0, count=0;
-  for(let k=path.length-lastN; k<path.length; k++){
-    const [i,j] = path[k];
-    const a = frameVector(refFrames[i].angles), b = frameVector(stuFrames[j].angles);
-    for(let x=0;x<a.length;x++){
-      if(a[x]==null || b[x]==null) continue;
-      sum += Math.abs(a[x]-b[x]); count++;
+/* ---- One proportional/positional relation per relevant point, mined from
+   the reference and checked against the student. Returns a message or null. */
+function evalPointRelation(rule, refFrames, stuFrames, path){
+  const refVals = refFrames.map(f => f.landmarks ? rule.compute(f.landmarks) : null).filter(v=>v!=null);
+  if(refVals.length < Math.max(4, refFrames.length*0.4)) return null;
+  if(rule.kind === 'continuous'){
+    const mean = refVals.reduce((a,b)=>a+b,0)/refVals.length;
+    const variance = refVals.reduce((a,b)=>a+(b-mean)**2,0)/refVals.length;
+    const std = Math.sqrt(variance);
+    if(std > 0.22) return null;
+    const tol = Math.max(0.12, std*2.2);
+    let violCount=0, matched=0, sumSigned=0;
+    for(const [,j] of path){
+      const stuLm = stuFrames[j].landmarks;
+      if(!stuLm) continue;
+      const v = rule.compute(stuLm);
+      if(v==null) continue;
+      matched++;
+      const diff = v - mean;
+      sumSigned += diff;
+      if(Math.abs(diff) > tol) violCount++;
     }
+    if(matched < 4) return null;
+    if(violCount/matched >= 0.3) return sumSigned/matched > 0 ? rule.msgHigh() : rule.msgLow();
+    return rule.msgOk ? rule.msgOk() : null;
   }
-  if(count<3) return null;
-  const avg = sum/count;
-  if(avg > 22){
-    return { severity: avg, message: 'נראה שלא הגעתם בדיוק לנקודת הסיום של התנועה כמו בדוגמה - ודאו שאתם משלימים את הטווח המלא' };
+  if(rule.kind === 'peak'){
+    const refPeak = Math.max(...refVals);
+    if(refPeak < 0.28) return null;
+    let stuPeak = -Infinity, any=false;
+    for(const [,j] of path){
+      const stuLm = stuFrames[j].landmarks;
+      if(!stuLm) continue;
+      const v = rule.compute(stuLm);
+      if(v==null) continue;
+      any = true; if(v>stuPeak) stuPeak = v;
+    }
+    if(!any) return null;
+    const tol = Math.max(0.1, refPeak*0.22);
+    if(stuPeak < refPeak - tol) return rule.msgLow();
+    return rule.msgOk ? rule.msgOk() : null;
   }
   return null;
 }
 
-function buildCorrections(refFrames, stuFrames, path){
-  const orderIssues = checkOrder(refFrames, stuFrames);
-  const endpointIssue = checkEndpoint(refFrames, stuFrames, path);
-  const relIssues = mineAndCheckRules(refFrames, stuFrames, path);
-  return [...orderIssues, ...(endpointIssue?[endpointIssue]:[]), ...relIssues];
+function pointRelationRules(pointName){
+  const S = pointName.startsWith('L_') ? 'L' : pointName.startsWith('R_') ? 'R' : null;
+  const WR = S==='L'?LM.L_WR:LM.R_WR, SH = S==='L'?LM.L_SH:LM.R_SH, EL = S==='L'?LM.L_EL:LM.R_EL,
+        HIP = S==='L'?LM.L_HIP:LM.R_HIP, HEEL = S==='L'?LM.L_HEEL:LM.R_HEEL,
+        KNEE = S==='L'?LM.L_KNEE:LM.R_KNEE, TOE = S==='L'?LM.L_TOE:LM.R_TOE;
+  const sideLbl = S ? SIDE_LABEL[S] : '';
+  switch(pointName){
+    case 'L_wrist': case 'R_wrist':
+      return [{
+        kind:'continuous',
+        compute:(lm)=>{ const w=getPt(lm,WR), sh=getPt(lm,SH), sc=torsoScale(lm); return (w&&sh&&sc) ? (w.y-sh.y)/sc : null; },
+        msgHigh:()=>`בדוגמה כף היד ה${sideLbl} נשארת בגובה הכתף - אצלכם היא יורדת נמוך מדי`,
+        msgLow:()=>`בדוגמה כף היד ה${sideLbl} נשארת בגובה הכתף - אצלכם היא גבוהה מדי`,
+        msgOk:()=>`גובה כף היד ה${sideLbl} ביחס לכתף תואם את הדוגמה`,
+      },{
+        kind:'peak',
+        compute:(lm)=>{
+          const w=getPt(lm,WR), lh=getPt(lm,LM.L_HIP), rh=getPt(lm,LM.R_HIP), sc=torsoScale(lm);
+          if(!w||!lh||!rh||!sc) return null;
+          return Math.abs(((lh.x+rh.x)/2) - w.x)/sc;
+        },
+        msgLow:()=>`בדוגמה כף היד ה${sideLbl} חוצה בבירור את קו מרכז הגוף - אצלכם היא לא מגיעה מספיק`,
+        msgOk:()=>`חצייה של קו מרכז הגוף עם כף היד ה${sideLbl} תואמת את הדוגמה`,
+      }];
+    case 'L_elbow': case 'R_elbow':
+      return [{
+        kind:'continuous',
+        compute:(lm)=>{ const e=getPt(lm,EL), h=getPt(lm,HIP), sc=torsoScale(lm); return (e&&h&&sc) ? dist(e,h)/sc : null; },
+        msgHigh:()=>`המרחק של המרפק ה${sideLbl} מהאגן גדול יותר מבדוגמה - המרפק פתוח מדי מהגוף`,
+        msgLow:()=>`המרחק של המרפק ה${sideLbl} מהאגן קטן יותר מבדוגמה - המרפק צמוד מדי לגוף`,
+        msgOk:()=>`המרחק של המרפק ה${sideLbl} מהאגן תואם את הדוגמה`,
+      }];
+    case 'L_hip': case 'R_hip':
+      return [{
+        kind:'continuous',
+        compute:(lm)=>{ const h=getPt(lm,HIP), hl=getPt(lm,HEEL), sc=torsoScale(lm); return (h&&hl&&sc) ? dist(h,hl)/sc : null; },
+        msgHigh:()=>`המרחק של האגן ה${sideLbl} מהעקב גדול יותר מבדוגמה`,
+        msgLow:()=>`המרחק של האגן ה${sideLbl} מהעקב קטן יותר מבדוגמה`,
+        msgOk:()=>`המרחק של האגן ה${sideLbl} מהעקב תואם את הדוגמה`,
+      }];
+    case 'L_knee': case 'R_knee':
+      return [{
+        kind:'continuous',
+        compute:(lm)=>{ const k=getPt(lm,KNEE), t=getPt(lm,TOE), sc=torsoScale(lm); return (k&&t&&sc) ? (k.x-t.x)/sc : null; },
+        msgHigh:()=>`הברך ה${sideLbl} מתקדמת יותר מדי לפני קו האצבעות ביחס לדוגמה`,
+        msgLow:()=>`הברך ה${sideLbl} נשארת מאחורי קו האצבעות ביחס לדוגמה`,
+        msgOk:()=>`מיקום הברך ה${sideLbl} ביחס לקו האצבעות תואם את הדוגמה`,
+      }];
+    case 'L_ankle': case 'R_ankle': case 'L_toe': case 'R_toe':
+      return [{
+        kind:'continuous',
+        compute:(lm)=>{ const a=getPt(lm,LM.L_ANK), b=getPt(lm,LM.R_ANK), sc=shoulderWidth(lm); return (a&&b&&sc) ? dist(a,b)/sc : null; },
+        msgHigh:()=>`רוחב העמידה בין הרגליים רחב יותר מבדוגמה`,
+        msgLow:()=>`רוחב העמידה בין הרגליים צר יותר מבדוגמה`,
+        msgOk:()=>`רוחב העמידה בין הרגליים תואם את הדוגמה`,
+      }];
+    case 'head':
+      return [{
+        kind:'continuous',
+        compute:(lm)=>{
+          const n=getPt(lm,LM.NOSE), ls=getPt(lm,LM.L_SH), rs=getPt(lm,LM.R_SH), sc=torsoScale(lm);
+          if(!n||!ls||!rs||!sc) return null;
+          return (n.x - (ls.x+rs.x)/2)/sc;
+        },
+        msgHigh:()=>`הראש נוטה יותר לכיוון אחד מאשר בדוגמה`,
+        msgLow:()=>`הראש נוטה יותר לכיוון השני מאשר בדוגמה`,
+        msgOk:()=>`יישור הראש ביחס לכתפיים תואם את הדוגמה`,
+      }];
+    default:
+      return [];
+  }
 }
+
+/* ---- Full inspection text for one lit point: timing + speed + trajectory + relation ---- */
+function buildPointInsight(pointName, refFrames, stuFrames, path){
+  const idx = TRACK_POINT_IDX[pointName];
+  const notes = [];
+
+  const refFrac = pointOnsetFraction(refFrames, idx);
+  const stuFrac = pointOnsetFraction(stuFrames, idx);
+  if(refFrac != null && stuFrac == null){
+    notes.push('בדוגמה הנקודה הזו זזה בבירור לאורך התנועה - בביצוע שלכם לא זוהתה תזוזה משמעותית בה');
+  } else if(refFrac != null && stuFrac != null){
+    const gap = stuFrac - refFrac;
+    if(Math.abs(gap) > 0.15){
+      notes.push(gap > 0
+        ? 'הנקודה הזו מתחילה לזוז מאוחר יותר ביחס לשאר התנועה, בהשוואה לדוגמה'
+        : 'הנקודה הזו מתחילה לזוז מוקדם יותר ביחס לשאר התנועה, בהשוואה לדוגמה');
+    }
+  }
+
+  const refStats = pointTrajectoryStats(refFrames, idx);
+  const stuStats = pointTrajectoryStats(stuFrames, idx);
+  if(refStats.totalDist > 0.15){
+    const distRatio = stuStats.totalDist / refStats.totalDist;
+    if(distRatio < 0.7) notes.push('טווח התנועה של הנקודה הזו קצר יותר מבדוגמה');
+    else if(distRatio > 1.4) notes.push('טווח התנועה של הנקודה הזו רחב יותר מבדוגמה');
+
+    const speedRatio = refStats.avgSpeed > 0 ? stuStats.avgSpeed / refStats.avgSpeed : 1;
+    if(speedRatio < 0.7) notes.push('קצב התנועה של הנקודה הזו איטי יותר מבדוגמה');
+    else if(speedRatio > 1.4) notes.push('קצב התנועה של הנקודה הזו מהיר יותר מבדוגמה');
+  }
+
+  for(const rule of pointRelationRules(pointName)){
+    const msg = evalPointRelation(rule, refFrames, stuFrames, path);
+    if(msg) notes.push(msg);
+  }
+
+  if(notes.length === 0) notes.push('לא זוהתה סטייה משמעותית בנקודה הזו ביחס לדוגמה');
+  return notes;
+}
+
+
 
 /* ===================== MOTION-WINDOW AUTO-DETECTION =====================
    Recordings rarely start/end exactly on the movement itself - there is
-   usually a moment of standing still before and after. Trimming both
-   sequences down to their real "moving" window (independently) means the
-   comparison starts from the same effective starting pose instead of
-   whatever idle stance happened to be recorded first. */
-function findMotionStart(frames, threshold){
-  threshold = threshold || 12;
+   usually a moment of standing in a start stance before, and a moment of
+   holding the finishing stance after (until the recording just runs out).
+   Instead of comparing every frame back to frame 0 (sensitive to a single
+   noisy frame), this looks at frame-to-frame velocity, smooths it, and
+   finds the first/last *sustained* burst of real movement - trimming
+   everything held-still before and after it. */
+function frameVelocities(frames){
   const vecs = frames.map(f => frameVector(f.angles));
-  const baseIdx = vecs.findIndex(v => v.some(x=>x!=null));
-  if(baseIdx === -1) return 0;
-  const base = vecs[baseIdx];
-  for(let i=baseIdx; i<vecs.length; i++){
-    if(!vecs[i].some(x=>x!=null)) continue;
-    if(frameDist(vecs[i], base) > threshold) return Math.max(0, i-1);
+  const vel = [0];
+  for(let i=1;i<vecs.length;i++) vel.push(frameDist(vecs[i], vecs[i-1]));
+  return vel;
+}
+function smoothSeries(arr, window){
+  const out = [];
+  for(let i=0;i<arr.length;i++){
+    let sum=0, count=0;
+    for(let k=Math.max(0,i-window+1); k<=i; k++){ sum+=arr[k]; count++; }
+    out.push(sum/count);
   }
-  return baseIdx;
+  return out;
+}
+function findMotionStart(frames, threshold){
+  threshold = threshold || 7;
+  const vel = smoothSeries(frameVelocities(frames), 3);
+  for(let i=1; i<vel.length-1; i++){
+    if(vel[i] > threshold && vel[i+1] > threshold) return Math.max(0, i-1);
+  }
+  return 0;
 }
 function findMotionEnd(frames, threshold){
-  threshold = threshold || 12;
-  const vecs = frames.map(f => frameVector(f.angles));
-  let lastIdx = -1;
-  for(let i=vecs.length-1; i>=0; i--){ if(vecs[i].some(x=>x!=null)){ lastIdx=i; break; } }
-  if(lastIdx === -1) return frames.length-1;
-  const base = vecs[lastIdx];
-  for(let i=lastIdx; i>=0; i--){
-    if(!vecs[i].some(x=>x!=null)) continue;
-    if(frameDist(vecs[i], base) > threshold) return Math.min(frames.length-1, i+1);
+  threshold = threshold || 7;
+  const vel = smoothSeries(frameVelocities(frames), 3);
+  for(let i=vel.length-1; i>1; i--){
+    if(vel[i] > threshold && vel[i-1] > threshold) return Math.min(frames.length-1, i+1);
   }
-  return lastIdx;
+  return frames.length-1;
 }
 function trimToMotion(frames){
   const start = findMotionStart(frames);
@@ -1083,15 +1105,10 @@ function drawSkeleton(ctx, landmarks, stepDev, w, h, isReference){
     ctx.lineWidth=2; ctx.strokeStyle='#0B0E14'; ctx.stroke();
   }
 }
-function jointScreenPoint(landmarks, jointName, w, h){
-  if(jointName === 'Torso'){
-    const ls = getPt(landmarks,11), rs = getPt(landmarks,12);
-    if(!ls||!rs) return null;
-    return { x:(ls.x+rs.x)/2*w, y:(ls.y+rs.y)/2*h };
-  }
-  const jointDef = JOINTS.find(jd => jd[0] === jointName);
-  if(!jointDef) return null;
-  const p = getPt(landmarks, jointDef[2]);
+function jointScreenPoint(landmarks, pointName, w, h){
+  const idx = TRACK_POINT_IDX[pointName];
+  if(idx == null) return null;
+  const p = getPt(landmarks, idx);
   return p ? { x:p.x*w, y:p.y*h } : null;
 }
 /* Numbered badges for the joints the person has toggled "lit" in the order list. */
@@ -1598,9 +1615,8 @@ async function runComparison(refRecord, stuBlob, stuFacing){
   const stuFrames = trimToMotion(stuData.frames);
   const { path } = dtw(refFrames, stuFrames);
   const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refFrames, stuFrames);
-  const corrections = buildCorrections(refFrames, stuFrames, path);
   const peakIndex = findPeakStepIndex(refFrames, path);
-  const jointOrder = buildJointOrderList(refFrames).map(j => ({
+  const jointOrder = buildPointOrderList(refFrames).map(j => ({
     ...j,
     pathIndex: pathIndexForRefFraction(path, refFrames.length, j.frac)
   }));
@@ -1609,7 +1625,7 @@ async function runComparison(refRecord, stuBlob, stuFacing){
     refFrames, stuFrames,
     refDuration: refRecord.duration,
     stuDuration: stuData.duration,
-    path, score, perJointAvg, perStepDeviation, corrections,
+    path, score, perJointAvg, perStepDeviation,
     peakIndex, jointOrder,
     refId: refRecord.id, refName: refRecord.name,
     refFacing: refRecord.facing || 'user', stuFacing: stuFacing || 'user',
@@ -1699,9 +1715,8 @@ async function renderResult(){
   playing = false;
   btnPlay.textContent = '▶';
 
-  renderCorrections();
   renderPhaseTrack();
-  litJoints = new Set(); // default: all joints off
+  litJoints = new Set(); // default: all points off
   renderJointOrder();
   renderJointInspect();
   await renderLeaderboard();
@@ -1768,29 +1783,12 @@ document.getElementById('dotPeak').addEventListener('click', () => { pausePlayba
 document.getElementById('dotEnd').addEventListener('click', () => { pausePlayback(); const li=analysis.path.length-1; playIndex=li; renderStep(li); });
 
 /* Match a correction note to one of the 9 angle-joints, for the inspect panel. */
-const JOINT_KEYWORDS = {
-  L_elbow:['מרפק', ['שמאל','שמאלית']], R_elbow:['מרפק', ['ימין','ימנית']],
-  L_shoulder:['כתף', ['שמאל','שמאלית']], R_shoulder:['כתף', ['ימין','ימנית']],
-  L_hip:['ירך', ['שמאל','שמאלית']], R_hip:['ירך', ['ימין','ימנית']],
-  L_knee:['ברך', ['שמאל','שמאלית']], R_knee:['ברך', ['ימין','ימנית']],
-  Torso:['גוף', null]
-};
-function correctionMatchesJoint(corr, jointName){
-  const text = (corr.label||'') + ' ' + (corr.message||'');
-  if(JOINT_LABELS_HE[jointName] && text.includes(JOINT_LABELS_HE[jointName])) return true;
-  const kw = JOINT_KEYWORDS[jointName];
-  if(!kw) return false;
-  const [part, sideForms] = kw;
-  if(!text.includes(part)) return false;
-  return sideForms ? sideForms.some(s=>text.includes(s)) : true;
-}
-
 let litJoints = new Set();
 function renderJointOrder(){
   const row = document.getElementById('jointOrderRow');
   row.innerHTML = '';
   if(!analysis.jointOrder || analysis.jointOrder.length===0){
-    row.innerHTML = '<div style="font-size:12px;color:var(--muted);">לא זוהתה תזוזה מובהקת מספיק במפרקים כדי לקבוע סדר</div>';
+    row.innerHTML = '<div style="font-size:12px;color:var(--muted);">לא זוהתה תזוזה מובהקת מספיק בנקודות כדי לקבוע סדר</div>';
     return;
   }
   analysis.jointOrder.forEach((j, idx) => {
@@ -1818,47 +1816,16 @@ function renderJointInspect(){
   }
   panel.classList.add('show');
   panel.innerHTML = [...litJoints].map(name => {
-    const label = JOINT_LABELS_HE[name];
-    const match = (analysis.corrections||[]).find(c => correctionMatchesJoint(c, name));
-    const color = match ? (match.severity>0.6 ? '#FF3B5C' : '#FFB020') : '#00E5C7';
-    const msg = match ? match.message : `לא זוהתה סטייה משמעותית ב${label}`;
+    const label = TRACK_POINT_LABEL[name];
+    const notes = buildPointInsight(name, analysis.refFrames, analysis.stuFrames, analysis.path);
+    const notesHtml = notes.map(msg => `<div class="correction-msg">${msg}</div>`).join('');
     return `<div class="correction-item">
-      <span class="correction-dot" style="background:${color}"></span>
-      <div><div class="correction-label">${label}</div><div class="correction-msg">${msg}</div></div>
+      <span class="correction-dot" style="background:#00E5C7"></span>
+      <div><div class="correction-label">${label}</div>${notesHtml}</div>
     </div>`;
   }).join('');
 }
 
-function renderCorrections(){
-  const badge = document.getElementById('correctionsBadge');
-  const list = document.getElementById('correctionsList');
-  const items = analysis.corrections || [];
-  if(items.length === 0){
-    badge.style.display = 'none';
-    list.innerHTML = '<div class="correction-empty">ביצוע מדויק! לא נמצאו סטיות משמעותיות מהדוגמה</div>';
-    return;
-  }
-  badge.style.display = 'flex';
-  badge.textContent = items.length;
-  list.innerHTML = items.map(it => `
-    <div class="correction-item">
-      <span class="correction-dot" style="background:${it.severity>0.6 ? '#FF3B5C' : '#FFB020'}"></span>
-      <div>
-        ${it.label ? `<div class="correction-label">${it.label}</div>` : ''}
-        <div class="correction-msg">${it.message}</div>
-      </div>
-    </div>`).join('');
-}
-
-document.getElementById('btnCorrections').addEventListener('click', () => {
-  document.getElementById('correctionsModal').classList.add('show');
-});
-document.getElementById('btnCloseCorrections').addEventListener('click', () => {
-  document.getElementById('correctionsModal').classList.remove('show');
-});
-document.getElementById('correctionsModal').addEventListener('click', (e) => {
-  if(e.target.id === 'correctionsModal') e.currentTarget.classList.remove('show');
-});
 
 async function renderStep(idx){
   const [i,j] = analysis.path[idx];
@@ -1903,7 +1870,6 @@ function stopPlayback(){
   closeZoom();
   closeRefViewer();
   document.getElementById('leaderboardModal').classList.remove('show');
-  document.getElementById('correctionsModal').classList.remove('show');
 }
 
 btnPlay.addEventListener('click', () => {
