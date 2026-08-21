@@ -103,10 +103,10 @@
   .ref-info{ flex:1; min-width:0; }
   .ref-name{ font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ref-meta{ font-size:12px; color:var(--muted); margin-top:2px; }
-  .ref-actions{ display:flex; gap:8px; flex:none; }
+  .ref-actions{ display:flex; gap:6px; flex:none; }
   .ref-try{ background:var(--accent); color:#052421; border:none; border-radius:10px; padding:9px 14px; font-weight:700; font-size:13px; cursor:pointer; }
-  .ref-export{ background:transparent; border:none; color:var(--muted); font-size:15px; cursor:pointer; padding:9px; }
-  .ref-del{ background:transparent; border:none; color:var(--muted); font-size:16px; cursor:pointer; padding:9px; }
+  .ref-export{ background:transparent; border:1px solid var(--line); color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; padding:8px 10px; border-radius:10px; white-space:nowrap; font-family:'Heebo',sans-serif; }
+  .ref-del{ background:transparent; border:1px solid var(--line); color:var(--bad); font-size:12px; font-weight:700; cursor:pointer; padding:8px 10px; border-radius:10px; white-space:nowrap; font-family:'Heebo',sans-serif; }
   .import-link{
     display:flex; align-items:center; justify-content:center; gap:6px; width:100%; background:none; border:none;
     color:var(--accent); font-family:'Heebo',sans-serif; font-size:13px; font-weight:700; cursor:pointer;
@@ -129,6 +129,7 @@
   .camera-wrap.state-stop{ box-shadow:0 0 0 4px var(--bad) inset; }
   .camera-wrap video, .camera-wrap canvas{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
   .camera-wrap video.mirrored{ transform:scaleX(-1); }
+  .mirrored{ transform:scaleX(-1); }
   .cam-flip{
     position:absolute; top:12px; left:12px; z-index:3; width:38px; height:38px; border-radius:50%;
     background:rgba(11,14,20,.6); border:1px solid rgba(255,255,255,.15); color:#fff; font-size:16px;
@@ -232,19 +233,27 @@
   .phase-labels{ position:relative; height:14px; margin-bottom:14px; }
   .phase-label{ position:absolute; top:0; transform:translateX(50%); font-size:10px; color:var(--muted); white-space:nowrap; }
 
-  .joint-order{ margin-bottom:16px; }
+  .joint-order{ margin-bottom:10px; }
   .joint-order-title{ font-size:12px; color:var(--muted); font-weight:700; margin-bottom:8px; }
+  .joint-order-hint{ font-size:11px; color:var(--muted); margin-bottom:8px; }
   .joint-order-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
   .joint-order-chip{
-    flex:none; display:flex; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--line);
-    border-radius:20px; padding:6px 12px; font-size:12px; white-space:nowrap;
-    font-family:'Heebo',sans-serif; color:var(--text); cursor:pointer; -webkit-appearance:none; appearance:none;
+    flex:none; display:flex; align-items:center; gap:6px; background:transparent; border:1px solid var(--line);
+    border-radius:20px; padding:6px 12px; font-size:12px; white-space:nowrap; color:var(--muted);
+    font-family:'Heebo',sans-serif; cursor:pointer; -webkit-appearance:none; appearance:none; transition:.12s;
   }
   .joint-order-chip:active{ background:var(--bg-elev-2); }
+  .joint-order-chip.lit{
+    background:var(--accent-dim); border-color:var(--accent); color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent) inset;
+  }
   .joint-order-num{
-    width:16px; height:16px; border-radius:50%; background:var(--accent-dim); color:var(--accent);
+    width:16px; height:16px; border-radius:50%; background:var(--bg-elev-2); color:var(--muted);
     font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none;
   }
+  .joint-order-chip.lit .joint-order-num{ background:var(--accent); color:#052421; }
+  .joint-inspect{ display:none; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .joint-inspect.show{ display:flex; }
 
   .legend{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
   .legend-chip{
@@ -319,7 +328,7 @@
       <div class="plus-badge">+</div>
     </div>
 
-    <button class="import-link" id="btnImportRef" type="button">📥 ייבוא תנועה שקיבלתי מהמורה</button>
+    <button class="import-link" id="btnImportRef" type="button">ייבוא תנועה שקיבלתי מהמורה</button>
     <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;" />
 
     <div class="section-label">תנועות לדוגמה שמורות</div>
@@ -423,21 +432,23 @@
 
     <div class="joint-order">
       <div class="joint-order-title">סדר הפעלת המפרקים (לפי הדוגמה)</div>
+      <div class="joint-order-hint">לחצו על מפרק כדי לבדוק אותו - כברירת מחדל הכל כבוי</div>
       <div class="joint-order-row" id="jointOrderRow"></div>
+      <div class="joint-inspect" id="jointInspectPanel"></div>
     </div>
 
     <div class="legend" id="legendRow"></div>
 
     <div style="display:flex; gap:10px; margin-bottom:10px;">
-      <button class="btn btn-ghost" id="btnViewRefAgain" style="flex:1;">🎬 צפו שוב בדוגמה</button>
+      <button class="btn btn-ghost" id="btnViewRefAgain" style="flex:1;">צפייה בדוגמה</button>
       <button class="btn btn-ghost corrections-btn" id="btnLeaderboard" style="flex:1; margin-bottom:0;">
-        🏆 היסטוריית ניסיונות
+        היסטוריית ניסיונות
         <span class="corrections-badge" id="leaderboardBadge" style="display:none;">0</span>
       </button>
     </div>
 
     <button class="btn btn-ghost btn-block corrections-btn" id="btnCorrections">
-      📋 תיקונים לביצוע
+      תיקונים לביצוע
       <span class="corrections-badge" id="correctionsBadge" style="display:none;">0</span>
     </button>
 
@@ -630,7 +641,44 @@ async function extractFrames(blob, onProgress){
     if(onProgress) onProgress(Math.min(1, n/totalSteps));
   }
   URL.revokeObjectURL(url);
-  return { frames, duration, width: w, height: h };
+  const correctedFrames = correctMirroring(frames);
+  return { frames: correctedFrames, duration, width: w, height: h };
+}
+
+/* ---- Left/right auto-correction -----------------------------------------
+   Some browsers/devices deliver the front camera's raw stream already
+   mirrored at the source (varies by device). The pose model isn't
+   flip-invariant for left/right, so a mirrored source gets its L/R swapped.
+   Fix: detect it from the landmarks themselves (right shoulder should sit
+   at a smaller x than left shoulder in a true/photographic frame) and, if
+   reversed, relabel every left/right landmark pair consistently. */
+const LR_SWAP_PAIRS = [[11,12],[13,14],[15,16],[23,24],[25,26],[27,28],[29,30],[31,32]];
+function detectMirroredSource(frames){
+  let sum=0, count=0;
+  for(const f of frames){
+    const lm = f.landmarks;
+    if(!lm) continue;
+    const l = lm[11], r = lm[12];
+    if(!l || !r) continue;
+    sum += (r.x - l.x); count++;
+  }
+  if(count < 3) return false;
+  return (sum/count) > 0.02; // right shoulder landing right of left shoulder => source is mirrored
+}
+function swapLR(landmarks){
+  const copy = landmarks.slice();
+  for(const [a,b] of LR_SWAP_PAIRS){
+    const tmp = copy[a]; copy[a] = copy[b]; copy[b] = tmp;
+  }
+  return copy;
+}
+function correctMirroring(frames){
+  if(!detectMirroredSource(frames)) return frames;
+  return frames.map(f => {
+    if(!f.landmarks) return f;
+    const swapped = swapLR(f.landmarks);
+    return { t: f.t, landmarks: swapped, angles: computeAngles(swapped) };
+  });
 }
 
 /* ===================== ANGLES ===================== */
@@ -1050,6 +1098,7 @@ function showScreen(name){
 
 let refs = [];
 let currentFacing = 'user';
+let lastRecordingFacing = 'user';
 let mediaStream = null;
 let mediaRecorder = null;
 let recordedChunks = [];
@@ -1100,9 +1149,10 @@ document.getElementById('btnFlipCam').addEventListener('click', () => {
 });
 
 /* ---- Full reference video viewer - always reachable, not a one-time preview ---- */
-function openRefViewer(blob, title){
+function openRefViewer(blob, title, facing){
   refViewTitle.textContent = title || 'תנועת הדוגמה';
   refViewVideo.src = URL.createObjectURL(blob);
+  refViewVideo.classList.toggle('mirrored', (facing||'user') === 'user');
   refViewModal.classList.add('show');
   refViewVideo.play().catch(()=>{});
 }
@@ -1113,10 +1163,10 @@ function closeRefViewer(){
 document.getElementById('btnCloseRefView').addEventListener('click', closeRefViewer);
 refViewModal.addEventListener('click', (e) => { if(e.target.id === 'refViewModal') closeRefViewer(); });
 attemptRefStrip.addEventListener('click', () => {
-  if(activeAttemptRef) openRefViewer(activeAttemptRef.videoBlob, activeAttemptRef.name);
+  if(activeAttemptRef) openRefViewer(activeAttemptRef.videoBlob, activeAttemptRef.name, activeAttemptRef.facing);
 });
 document.getElementById('btnViewRefAgain').addEventListener('click', () => {
-  if(analysis) openRefViewer(analysis.refBlob, activeAttemptRef ? activeAttemptRef.name : 'תנועת הדוגמה');
+  if(analysis) openRefViewer(analysis.refBlob, activeAttemptRef ? activeAttemptRef.name : 'תנועת הדוגמה', analysis.refFacing);
 });
 
 function resetCaptureUI(){
@@ -1153,6 +1203,7 @@ function openCapture(mode, refRecord){
     attemptRefName.textContent = refRecord.name;
     const url = URL.createObjectURL(refRecord.videoBlob);
     attemptRefVideo.src = url;
+    attemptRefVideo.classList.toggle('mirrored', (refRecord.facing||'user') === 'user');
   }
   showScreen('capture');
   startCamera();
@@ -1226,6 +1277,7 @@ btnRecord.addEventListener('click', async () => {
 
 function beginRecording(){
   recordedChunks = [];
+  lastRecordingFacing = currentFacing;
   let mimeType = 'video/webm;codecs=vp9';
   if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8';
   if(!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
@@ -1268,7 +1320,7 @@ function onRecordingStopped(){
   liveControls.style.display='none';
   previewControls.style.display='block';
   liveVideo.srcObject = null;
-  liveVideo.classList.remove('mirrored'); // show the actual recorded (true) orientation
+  // keep the same mirror state the live view had - flipping it now would be disorienting
   liveVideo.src = URL.createObjectURL(lastRecordedBlob);
   liveVideo.muted = true; liveVideo.loop = true; liveVideo.play();
   if(mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
@@ -1300,6 +1352,7 @@ document.getElementById('btnUsePreview').addEventListener('click', async () => {
       name, createdAt: Date.now(),
       videoBlob: lastRecordedBlob,
       frames, duration, width, height,
+      facing: currentFacing,
       poster
     };
     await dbPut(rec);
@@ -1307,7 +1360,7 @@ document.getElementById('btnUsePreview').addEventListener('click', async () => {
     await loadRefs();
     showScreen('home');
   } else {
-    await runComparison(activeAttemptRef, lastRecordedBlob);
+    await runComparison(activeAttemptRef, lastRecordedBlob, lastRecordingFacing);
   }
 });
 
@@ -1350,12 +1403,12 @@ async function loadRefs(){
       <div class="ref-thumb" style="background-image:url('${r.poster||''}')"></div>
       <div class="ref-info">
         <div class="ref-name">${escapeHtml(r.name)}</div>
-        <div class="ref-meta">${r.duration.toFixed(1)} שנ׳ · ${dt.toLocaleDateString('he-IL')}${count>0 ? ` · 🏆 ${count} ניסיונות` : ''}</div>
+        <div class="ref-meta">${r.duration.toFixed(1)} שנ׳ · ${dt.toLocaleDateString('he-IL')}${count>0 ? ` · ${count} ניסיונות` : ''}</div>
       </div>
       <div class="ref-actions">
         <button class="ref-try" data-id="${r.id}">נסה</button>
-        <button class="ref-export" data-id="${r.id}">📤</button>
-        <button class="ref-del" data-id="${r.id}">🗑</button>
+        <button class="ref-export" data-id="${r.id}">שליחה</button>
+        <button class="ref-del" data-id="${r.id}">מחיקה</button>
       </div>`;
     list.appendChild(card);
   }
@@ -1415,6 +1468,7 @@ async function exportReference(refRecord){
       width: refRecord.width,
       height: refRecord.height,
       frames: refRecord.frames,
+      facing: refRecord.facing || 'user',
       videoBase64,
       videoType: refRecord.videoBlob.type || 'video/webm'
     };
@@ -1458,7 +1512,7 @@ document.getElementById('importFileInput').addEventListener('change', async (e) 
       name: payload.name || 'תנועה מיובאת',
       createdAt: Date.now(),
       videoBlob, frames: payload.frames, duration: payload.duration,
-      width: payload.width, height: payload.height, poster
+      width: payload.width, height: payload.height, facing: payload.facing || 'user', poster
     };
     await dbPut(rec);
     await loadRefs();
@@ -1469,14 +1523,14 @@ document.getElementById('importFileInput').addEventListener('change', async (e) 
 });
 
 /* ===================== COMPARISON PIPELINE ===================== */
-async function runComparison(refRecord, stuBlob){
+async function runComparison(refRecord, stuBlob, stuFacing){
   processingOverlay.classList.add('show');
   procText.textContent = 'מנתח את הביצוע שלך…';
   procPct.textContent = '0%';
   const stuData = await extractFrames(stuBlob, (p)=>{ procPct.textContent = Math.round(p*100)+'%'; });
 
   procText.textContent = 'משווה לתנועה לדוגמה…';
-  const refFrames = trimToMotion(refRecord.frames);
+  const refFrames = trimToMotion(correctMirroring(refRecord.frames));
   const stuFrames = trimToMotion(stuData.frames);
   const { path } = dtw(refFrames, stuFrames);
   const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refFrames, stuFrames);
@@ -1494,6 +1548,7 @@ async function runComparison(refRecord, stuBlob){
     path, score, perJointAvg, perStepDeviation, corrections,
     peakIndex, jointOrder,
     refId: refRecord.id, refName: refRecord.name,
+    refFacing: refRecord.facing || 'user', stuFacing: stuFacing || 'user',
     refBlob: refRecord.videoBlob,
     stuBlob: stuBlob
   };
@@ -1529,6 +1584,7 @@ function openZoom(side){
   const src = side === 'ref' ? refCanvas : stuCanvas;
   zoomCanvas.width = src.width; zoomCanvas.height = src.height;
   zoomCtx.drawImage(src, 0, 0);
+  zoomCanvas.classList.toggle('mirrored', (side==='ref' ? analysis.refFacing : analysis.stuFacing) === 'user');
   zoomOverlay.classList.add('show');
 }
 function closeZoom(){ zoomedSide = null; zoomOverlay.classList.remove('show'); }
@@ -1571,6 +1627,8 @@ async function renderResult(){
 
   refCanvas.width = refPlayerVideo.videoWidth || 480; refCanvas.height = refPlayerVideo.videoHeight || 640;
   stuCanvas.width = stuPlayerVideo.videoWidth || 480; stuCanvas.height = stuPlayerVideo.videoHeight || 640;
+  refCanvas.classList.toggle('mirrored', analysis.refFacing === 'user');
+  stuCanvas.classList.toggle('mirrored', analysis.stuFacing === 'user');
 
   scrubRange.max = analysis.path.length - 1;
   scrubRange.value = 0;
@@ -1590,7 +1648,9 @@ async function renderResult(){
 
   renderCorrections();
   renderPhaseTrack();
+  litJoints = new Set(); // default: all joints off
   renderJointOrder();
+  renderJointInspect();
   await renderLeaderboard();
   await renderStep(0);
 }
@@ -1606,7 +1666,7 @@ async function renderLeaderboard(){
     badge.style.display = 'none';
   }
   if(attempts.length === 0){
-    list.innerHTML = '<div class="correction-empty">אתם הראשונים שמנסים את התנועה הזו 🥇</div>';
+    list.innerHTML = '<div class="correction-empty">אתם הראשונים שמנסים את התנועה הזו</div>';
     return;
   }
   list.innerHTML = attempts.map((a, idx) => {
@@ -1654,6 +1714,25 @@ document.getElementById('dotStart').addEventListener('click', () => { pausePlayb
 document.getElementById('dotPeak').addEventListener('click', () => { pausePlayback(); playIndex=analysis.peakIndex; renderStep(analysis.peakIndex); });
 document.getElementById('dotEnd').addEventListener('click', () => { pausePlayback(); const li=analysis.path.length-1; playIndex=li; renderStep(li); });
 
+/* Match a correction note to one of the 9 angle-joints, for the inspect panel. */
+const JOINT_KEYWORDS = {
+  L_elbow:['מרפק', ['שמאל','שמאלית']], R_elbow:['מרפק', ['ימין','ימנית']],
+  L_shoulder:['כתף', ['שמאל','שמאלית']], R_shoulder:['כתף', ['ימין','ימנית']],
+  L_hip:['ירך', ['שמאל','שמאלית']], R_hip:['ירך', ['ימין','ימנית']],
+  L_knee:['ברך', ['שמאל','שמאלית']], R_knee:['ברך', ['ימין','ימנית']],
+  Torso:['גוף', null]
+};
+function correctionMatchesJoint(corr, jointName){
+  const text = (corr.label||'') + ' ' + (corr.message||'');
+  if(JOINT_LABELS_HE[jointName] && text.includes(JOINT_LABELS_HE[jointName])) return true;
+  const kw = JOINT_KEYWORDS[jointName];
+  if(!kw) return false;
+  const [part, sideForms] = kw;
+  if(!text.includes(part)) return false;
+  return sideForms ? sideForms.some(s=>text.includes(s)) : true;
+}
+
+let litJoints = new Set();
 function renderJointOrder(){
   const row = document.getElementById('jointOrderRow');
   row.innerHTML = '';
@@ -1663,16 +1742,38 @@ function renderJointOrder(){
   }
   analysis.jointOrder.forEach((j, idx) => {
     const chip = document.createElement('button');
-    chip.className = 'joint-order-chip';
+    chip.className = 'joint-order-chip' + (litJoints.has(j.name) ? ' lit' : '');
     chip.type = 'button';
     chip.innerHTML = `<span class="joint-order-num">${idx+1}</span>${j.label}`;
     chip.addEventListener('click', () => {
+      if(litJoints.has(j.name)) litJoints.delete(j.name); else litJoints.add(j.name);
       pausePlayback();
       playIndex = j.pathIndex;
       renderStep(j.pathIndex);
+      renderJointOrder();
+      renderJointInspect();
     });
     row.appendChild(chip);
   });
+}
+function renderJointInspect(){
+  const panel = document.getElementById('jointInspectPanel');
+  if(litJoints.size === 0){
+    panel.classList.remove('show');
+    panel.innerHTML = '';
+    return;
+  }
+  panel.classList.add('show');
+  panel.innerHTML = [...litJoints].map(name => {
+    const label = JOINT_LABELS_HE[name];
+    const match = (analysis.corrections||[]).find(c => correctionMatchesJoint(c, name));
+    const color = match ? (match.severity>0.6 ? '#FF3B5C' : '#FFB020') : '#00E5C7';
+    const msg = match ? match.message : `לא זוהתה סטייה משמעותית ב${label}`;
+    return `<div class="correction-item">
+      <span class="correction-dot" style="background:${color}"></span>
+      <div><div class="correction-label">${label}</div><div class="correction-msg">${msg}</div></div>
+    </div>`;
+  }).join('');
 }
 
 function renderCorrections(){
@@ -1681,7 +1782,7 @@ function renderCorrections(){
   const items = analysis.corrections || [];
   if(items.length === 0){
     badge.style.display = 'none';
-    list.innerHTML = '<div class="correction-empty">ביצוע מדויק! לא נמצאו סטיות משמעותיות מהדוגמה 🎯</div>';
+    list.innerHTML = '<div class="correction-empty">ביצוע מדויק! לא נמצאו סטיות משמעותיות מהדוגמה</div>';
     return;
   }
   badge.style.display = 'flex';
@@ -1810,10 +1911,12 @@ async function buildShareVideo(){
     cctx.clearRect(0,0,compW,compH);
     drawHeader();
     cctx.save(); cctx.translate(0, headerH);
+    if(analysis.refFacing === 'user'){ cctx.translate(refCanvas.width, 0); cctx.scale(-1, 1); }
     cctx.drawImage(refPlayerVideo, 0, 0, refCanvas.width, refCanvas.height);
     drawSkeleton(cctx, refF.landmarks, null, refCanvas.width, refCanvas.height, true);
     cctx.restore();
     cctx.save(); cctx.translate(refCanvas.width, headerH);
+    if(analysis.stuFacing === 'user'){ cctx.translate(stuCanvas.width, 0); cctx.scale(-1, 1); }
     cctx.drawImage(stuPlayerVideo, 0, 0, stuCanvas.width, stuCanvas.height);
     drawSkeleton(cctx, stuF.landmarks, analysis.perStepDeviation[idx], stuCanvas.width, stuCanvas.height, false);
     cctx.restore();
@@ -1839,8 +1942,16 @@ function buildShareImage(){
     cctx.fillStyle = analysis.score>=80 ? '#00E5C7' : analysis.score>=50 ? '#FFB020' : '#FF3B5C';
     cctx.font = "700 30px 'JetBrains Mono', monospace";
     cctx.fillText(`ציון: ${analysis.score}`, compW/2, 40);
-    cctx.drawImage(refCanvas, 0, headerH);
-    cctx.drawImage(stuCanvas, refCanvas.width, headerH);
+    cctx.save();
+    cctx.translate(0, headerH);
+    if(analysis.refFacing === 'user'){ cctx.translate(refCanvas.width, 0); cctx.scale(-1,1); }
+    cctx.drawImage(refCanvas, 0, 0);
+    cctx.restore();
+    cctx.save();
+    cctx.translate(refCanvas.width, headerH);
+    if(analysis.stuFacing === 'user'){ cctx.translate(stuCanvas.width, 0); cctx.scale(-1,1); }
+    cctx.drawImage(stuCanvas, 0, 0);
+    cctx.restore();
     comp.toBlob((blob) => resolve(blob), 'image/png');
   });
 }
