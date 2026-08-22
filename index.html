@@ -253,25 +253,24 @@
   .phase-labels{ position:relative; height:14px; margin-bottom:14px; }
   .phase-label{ position:absolute; top:0; transform:translateX(50%); font-size:10px; color:var(--muted); white-space:nowrap; }
 
-  .joint-order{ margin-bottom:10px; }
-  .joint-order-title{ font-size:12px; color:var(--muted); font-weight:700; margin-bottom:8px; }
-  .joint-order-hint{ font-size:11px; color:var(--muted); margin-bottom:8px; }
-  .joint-order-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
-  .joint-order-chip{
-    flex:none; display:flex; align-items:center; gap:6px; background:transparent; border:1px solid var(--line);
-    border-radius:20px; padding:6px 12px; font-size:12px; white-space:nowrap; color:var(--muted);
-    font-family:'Heebo',sans-serif; cursor:pointer; -webkit-appearance:none; appearance:none; transition:.12s;
+  .point-grid{ margin-bottom:10px; display:flex; flex-direction:column; gap:14px; }
+  .point-group-title{ font-size:12px; color:var(--muted); font-weight:700; margin-bottom:8px; }
+  .point-group-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .point-capsule{
+    display:flex; align-items:stretch; border-radius:20px; overflow:hidden; border:1px solid var(--line);
+    background:var(--bg-elev); flex:none;
   }
-  .joint-order-chip:active{ background:var(--bg-elev-2); }
-  .joint-order-chip.lit{
-    background:var(--accent-dim); border-color:var(--accent); color:var(--accent);
-    box-shadow:0 0 0 1px var(--accent) inset;
+  .point-capsule-label{
+    display:flex; align-items:center; padding:0 10px; font-size:11.5px; font-weight:700; color:var(--text);
+    white-space:nowrap; background:var(--bg-elev);
   }
-  .joint-order-num{
-    width:16px; height:16px; border-radius:50%; background:var(--bg-elev-2); color:var(--muted);
-    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none;
+  .point-capsule-btn{
+    border:none; padding:8px 12px; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap;
+    font-family:'Heebo',sans-serif; color:#052411; -webkit-appearance:none; appearance:none;
+    border-inline-start:1px solid rgba(0,0,0,.15); transition:filter .12s;
   }
-  .joint-order-chip.lit .joint-order-num{ background:var(--accent); color:#052421; }
+  .point-capsule-btn.selected{ box-shadow:inset 0 0 0 2px rgba(255,255,255,.65); }
+  .point-capsule-btn:active{ filter:brightness(.9); }
   .joint-inspect{ display:none; flex-direction:column; gap:8px; margin-bottom:16px; }
   .joint-inspect.show{ display:flex; }
 
@@ -452,12 +451,8 @@
       <span class="phase-label" id="labelEnd">סיום</span>
     </div>
 
-    <div class="joint-order">
-      <div class="joint-order-title">סדר הפעלת המפרקים (לפי הדוגמה)</div>
-      <div class="joint-order-hint">לחצו על מפרק כדי לבדוק אותו - כברירת מחדל הכל כבוי</div>
-      <div class="joint-order-row" id="jointOrderRow"></div>
-      <div class="joint-inspect" id="jointInspectPanel"></div>
-    </div>
+    <div class="point-grid" id="pointGrid"></div>
+    <div class="joint-inspect" id="jointInspectPanel"></div>
 
     <div style="display:flex; gap:10px; margin-bottom:10px;">
       <button class="btn btn-ghost" id="btnViewRefAgain" style="flex:1;">צפייה בדוגמה</button>
@@ -788,27 +783,36 @@ function devColor(d){
 
 /* ===================== TRACKED POINTS =====================
    Real landmark points (not derived angles) tracked individually, the way
-   Tracking Point did - order of onset, speed, trajectory range, and one
-   proportional/positional check where relevant. Only shown when the person
-   lights up that specific chip. */
+   Tracking Point did - grouped by body region, colored by how much they
+   deviate from the reference, with detail notes on tap. */
 const LM = { NOSE:0, L_SH:11,R_SH:12, L_EL:13,R_EL:14, L_WR:15,R_WR:16,
              L_FT:19,R_FT:20, L_HIP:23,R_HIP:24, L_KNEE:25,R_KNEE:26,
              L_HEEL:29,R_HEEL:30, L_ANK:27,R_ANK:28, L_TOE:31,R_TOE:32 };
 const SIDE_LABEL = { L:'שמאלית', R:'ימנית' };
-const TRACK_POINTS = [
-  ['head', LM.NOSE, 'ראש'],
-  ['L_shoulder', LM.L_SH, 'כתף שמאל'], ['R_shoulder', LM.R_SH, 'כתף ימין'],
-  ['L_elbow', LM.L_EL, 'מרפק שמאל'], ['R_elbow', LM.R_EL, 'מרפק ימין'],
-  ['L_wrist', LM.L_WR, 'שורש כף יד שמאל'], ['R_wrist', LM.R_WR, 'שורש כף יד ימין'],
-  ['L_fingertip', LM.L_FT, 'קצות אצבעות יד שמאל'], ['R_fingertip', LM.R_FT, 'קצות אצבעות יד ימין'],
-  ['L_hip', LM.L_HIP, 'אגן שמאל'], ['R_hip', LM.R_HIP, 'אגן ימין'],
-  ['L_knee', LM.L_KNEE, 'ברך שמאל'], ['R_knee', LM.R_KNEE, 'ברך ימין'],
-  ['L_ankle', LM.L_ANK, 'קרסול שמאל'], ['R_ankle', LM.R_ANK, 'קרסול ימין'],
-  ['L_toe', LM.L_TOE, 'קצות אצבעות רגל שמאל'], ['R_toe', LM.R_TOE, 'קצות אצבעות רגל ימין'],
+const POINT_GROUPS = [
+  { title:'גפיים עליונות', keys:['shoulder','elbow','wrist','fingertip'] },
+  { title:'גפיים תחתונות', keys:['hip','knee','ankle','toe'] },
+  { title:'טורסו וראש', keys:['torso','head'] },
 ];
-const TRACK_POINT_IDX = Object.fromEntries(TRACK_POINTS.map(p=>[p[0],p[1]]));
-const TRACK_POINT_LABEL = Object.fromEntries(TRACK_POINTS.map(p=>[p[0],p[2]]));
-
+const POINT_LABELS = {
+  shoulder:'כתף', elbow:'מרפק', wrist:'שורש כף יד', fingertip:'קצות אצבעות יד',
+  hip:'אגן', knee:'ברך', ankle:'קרסול', toe:'קצות אצבעות רגל',
+  torso:'טורסו', head:'ראש'
+};
+const NO_SIDE_POINTS = new Set(['torso','head']);
+const TRACK_POINT_IDX = {
+  L_shoulder:LM.L_SH, R_shoulder:LM.R_SH, L_elbow:LM.L_EL, R_elbow:LM.R_EL,
+  L_wrist:LM.L_WR, R_wrist:LM.R_WR, L_fingertip:LM.L_FT, R_fingertip:LM.R_FT,
+  L_hip:LM.L_HIP, R_hip:LM.R_HIP, L_knee:LM.L_KNEE, R_knee:LM.R_KNEE,
+  L_ankle:LM.L_ANK, R_ankle:LM.R_ANK, L_toe:LM.L_TOE, R_toe:LM.R_TOE,
+  head:LM.NOSE
+};
+function pointLabel(name){
+  if(name === 'torso') return 'טורסו';
+  if(name === 'head') return 'ראש';
+  const S = name.startsWith('L_') ? 'L' : 'R';
+  return `${POINT_LABELS[name.slice(2)]} ${SIDE_LABEL[S]}`;
+}
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 function torsoScale(lm){
   const ls=getPt(lm,LM.L_SH), rs=getPt(lm,LM.R_SH), lh=getPt(lm,LM.L_HIP), rh=getPt(lm,LM.R_HIP);
@@ -822,10 +826,21 @@ function shoulderWidth(lm){
   const d = dist(ls,rs);
   return d>0.01 ? d : null;
 }
+/* 'torso' isn't a raw landmark - it's the center of shoulders+hips. */
+function getTrackedPoint(landmarks, name){
+  if(!landmarks) return null;
+  if(name === 'torso'){
+    const ls=getPt(landmarks,LM.L_SH), rs=getPt(landmarks,LM.R_SH), lh=getPt(landmarks,LM.L_HIP), rh=getPt(landmarks,LM.R_HIP);
+    if(!ls||!rs||!lh||!rh) return null;
+    return { x:(ls.x+rs.x+lh.x+rh.x)/4, y:(ls.y+rs.y+lh.y+rh.y)/4 };
+  }
+  const idx = TRACK_POINT_IDX[name];
+  return idx==null ? null : getPt(landmarks, idx);
+}
 
 /* ---- Onset: when does a specific point start actually moving (position-based) ---- */
-function pointOnsetFraction(frames, idx){
-  const pts = frames.map(f => f.landmarks ? getPt(f.landmarks, idx) : null);
+function pointOnsetFraction(frames, name){
+  const pts = frames.map(f => getTrackedPoint(f.landmarks, name));
   const firstValid = pts.findIndex(p=>p!=null);
   if(firstValid === -1) return null;
   const base = pts[firstValid];
@@ -838,14 +853,25 @@ function pointOnsetFraction(frames, idx){
   }
   return null;
 }
-function buildPointOrderList(frames){
-  const list = [];
-  for(const [name,,label] of TRACK_POINTS){
-    const frac = pointOnsetFraction(frames, TRACK_POINT_IDX[name]);
-    if(frac != null) list.push({ name, label, frac });
+/* ---- Overall deviation score for one point across the matched comparison -
+   this is what colors the chip green/orange/red, same idea as the skeleton dots. ---- */
+function pointDeviationScore(name, refFrames, stuFrames, path){
+  let sum=0, count=0;
+  for(const [i,j] of path){
+    const rp = getTrackedPoint(refFrames[i].landmarks, name);
+    const sp = getTrackedPoint(stuFrames[j].landmarks, name);
+    if(!rp || !sp) continue;
+    const sc = torsoScale(refFrames[i].landmarks) || torsoScale(stuFrames[j].landmarks) || 0.3;
+    sum += dist(rp, sp)/sc;
+    count++;
   }
-  list.sort((a,b)=>a.frac-b.frac);
-  return list;
+  return count ? sum/count : null;
+}
+function pointDevColor(score){
+  if(score == null) return '#54607a';
+  if(score < 0.09) return '#00E5C7';
+  if(score < 0.2) return '#FFB020';
+  return '#FF3B5C';
 }
 /* ---- Peak-of-movement step: matched path index where the reference is
    furthest from its own starting pose (shared index = synchronized) ---- */
@@ -873,10 +899,10 @@ function pathIndexForRefFraction(path, refLen, frac){
 
 /* ---- Per-point trajectory stats: total distance traveled + average speed,
    independent of DTW warping (computed on each recording's own frames). ---- */
-function pointTrajectoryStats(frames, idx){
+function pointTrajectoryStats(frames, name){
   let totalDist = 0, prev = null, prevValid = false;
   for(const f of frames){
-    const p = f.landmarks ? getPt(f.landmarks, idx) : null;
+    const p = getTrackedPoint(f.landmarks, name);
     if(p && prevValid){
       const sc = torsoScale(f.landmarks) || 0.3;
       totalDist += dist(p, prev) / sc;
@@ -1007,11 +1033,10 @@ function pointRelationRules(pointName){
 
 /* ---- Full inspection text for one lit point: timing + speed + trajectory + relation ---- */
 function buildPointInsight(pointName, refFrames, stuFrames, path){
-  const idx = TRACK_POINT_IDX[pointName];
   const notes = [];
 
-  const refFrac = pointOnsetFraction(refFrames, idx);
-  const stuFrac = pointOnsetFraction(stuFrames, idx);
+  const refFrac = pointOnsetFraction(refFrames, pointName);
+  const stuFrac = pointOnsetFraction(stuFrames, pointName);
   if(refFrac != null && stuFrac == null){
     notes.push('בדוגמה הנקודה הזו זזה בבירור לאורך התנועה - בביצוע שלכם לא זוהתה תזוזה משמעותית בה');
   } else if(refFrac != null && stuFrac != null){
@@ -1023,8 +1048,8 @@ function buildPointInsight(pointName, refFrames, stuFrames, path){
     }
   }
 
-  const refStats = pointTrajectoryStats(refFrames, idx);
-  const stuStats = pointTrajectoryStats(stuFrames, idx);
+  const refStats = pointTrajectoryStats(refFrames, pointName);
+  const stuStats = pointTrajectoryStats(stuFrames, pointName);
   if(refStats.totalDist > 0.15){
     const distRatio = stuStats.totalDist / refStats.totalDist;
     if(distRatio < 0.7) notes.push('טווח התנועה של הנקודה הזו קצר יותר מבדוגמה');
@@ -1127,26 +1152,21 @@ function drawSkeleton(ctx, landmarks, stepDev, w, h, isReference){
   }
 }
 function jointScreenPoint(landmarks, pointName, w, h){
-  const idx = TRACK_POINT_IDX[pointName];
-  if(idx == null) return null;
-  const p = getPt(landmarks, idx);
+  const p = getTrackedPoint(landmarks, pointName);
   return p ? { x:p.x*w, y:p.y*h } : null;
 }
-/* Numbered badges for the joints the person has toggled "lit" in the order list. */
-function drawJointBadges(ctx, landmarks, w, h, jointOrderList){
-  if(!landmarks || !jointOrderList || litJoints.size === 0) return;
-  jointOrderList.forEach((j, idx) => {
-    if(!litJoints.has(j.name)) return;
-    const p = jointScreenPoint(landmarks, j.name, w, h);
+/* Highlight ring for whichever points are currently selected in the grid,
+   colored to match that point's severity. */
+function drawJointBadges(ctx, landmarks, w, h){
+  if(!landmarks || litJoints.size === 0) return;
+  litJoints.forEach(name => {
+    const p = jointScreenPoint(landmarks, name, w, h);
     if(!p) return;
-    const bx = p.x, by = p.y - 18;
-    ctx.beginPath(); ctx.arc(bx, by, 10, 0, Math.PI*2);
-    ctx.fillStyle = '#00E5C7'; ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = '#052421'; ctx.stroke();
-    ctx.fillStyle = '#052421';
-    ctx.font = "700 12px 'JetBrains Mono', monospace";
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(idx+1), bx, by+1);
+    const color = litJointColors[name] || '#00E5C7';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 13, 0, Math.PI*2);
+    ctx.lineWidth = 3; ctx.strokeStyle = color; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
   });
 }
 
@@ -1714,17 +1734,18 @@ async function runComparison(refRecord, stuBlob, stuFacing){
   const { path } = dtw(refFrames, stuFrames);
   const { score, perJointAvg, perStepDeviation } = scoreFromPath(path, refFrames, stuFrames);
   const peakIndex = findPeakStepIndex(refFrames, path);
-  const jointOrder = buildPointOrderList(refFrames).map(j => ({
-    ...j,
-    pathIndex: pathIndexForRefFraction(path, refFrames.length, j.frac)
-  }));
+  const allPointNames = ['head','torso',
+    'L_shoulder','R_shoulder','L_elbow','R_elbow','L_wrist','R_wrist','L_fingertip','R_fingertip',
+    'L_hip','R_hip','L_knee','R_knee','L_ankle','R_ankle','L_toe','R_toe'];
+  const pointScores = {};
+  for(const name of allPointNames) pointScores[name] = pointDeviationScore(name, refFrames, stuFrames, path);
 
   analysis = {
     refFrames, stuFrames,
     refDuration: refRecord.duration,
     stuDuration: stuData.duration,
     path, score, perJointAvg, perStepDeviation,
-    peakIndex, jointOrder,
+    peakIndex, pointScores,
     refId: refRecord.id, refName: refRecord.name,
     refFacing: refRecord.facing || 'user', stuFacing: stuFacing || 'user',
     refBlob: refRecord.videoBlob,
@@ -1814,8 +1835,8 @@ async function renderResult(){
   btnPlay.textContent = '▶';
 
   renderPhaseTrack();
-  litJoints = new Set(); // default: all points off
-  renderJointOrder();
+  litJoints = new Set(); // default: nothing expanded
+  renderPointGrid();
   renderJointInspect();
   await renderLeaderboard();
   await renderStep(0);
@@ -1882,28 +1903,57 @@ document.getElementById('dotEnd').addEventListener('click', () => { pausePlaybac
 
 /* Match a correction note to one of the 9 angle-joints, for the inspect panel. */
 let litJoints = new Set();
-function renderJointOrder(){
-  const row = document.getElementById('jointOrderRow');
-  row.innerHTML = '';
-  if(!analysis.jointOrder || analysis.jointOrder.length===0){
-    row.innerHTML = '<div style="font-size:12px;color:var(--muted);">לא זוהתה תזוזה מובהקת מספיק בנקודות כדי לקבוע סדר</div>';
-    return;
+let litJointColors = {};
+function jumpToPointMoment(name){
+  const frac = pointOnsetFraction(analysis.refFrames, name);
+  const idx = frac != null
+    ? pathIndexForRefFraction(analysis.path, analysis.refFrames.length, frac)
+    : analysis.peakIndex;
+  pausePlayback();
+  playIndex = idx;
+  renderStep(idx);
+}
+function renderPointGrid(){
+  const grid = document.getElementById('pointGrid');
+  grid.innerHTML = '';
+  for(const group of POINT_GROUPS){
+    const section = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'point-group-title';
+    title.textContent = group.title;
+    section.appendChild(title);
+    const row = document.createElement('div');
+    row.className = 'point-group-row';
+    for(const key of group.keys){
+      const capsule = document.createElement('div');
+      capsule.className = 'point-capsule';
+      const labelEl = document.createElement('div');
+      labelEl.className = 'point-capsule-label';
+      labelEl.textContent = POINT_LABELS[key];
+      capsule.appendChild(labelEl);
+      const names = NO_SIDE_POINTS.has(key) ? [key] : ['R_'+key, 'L_'+key];
+      for(const name of names){
+        const score = analysis.pointScores[name];
+        const color = pointDevColor(score);
+        litJointColors[name] = color;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'point-capsule-btn' + (litJoints.has(name) ? ' selected' : '');
+        btn.style.background = color;
+        btn.textContent = NO_SIDE_POINTS.has(key) ? '' : (name.startsWith('R_') ? 'ימין' : 'שמאל');
+        btn.addEventListener('click', () => {
+          if(litJoints.has(name)) litJoints.delete(name); else litJoints.add(name);
+          jumpToPointMoment(name);
+          renderPointGrid();
+          renderJointInspect();
+        });
+        capsule.appendChild(btn);
+      }
+      row.appendChild(capsule);
+    }
+    section.appendChild(row);
+    grid.appendChild(section);
   }
-  analysis.jointOrder.forEach((j, idx) => {
-    const chip = document.createElement('button');
-    chip.className = 'joint-order-chip' + (litJoints.has(j.name) ? ' lit' : '');
-    chip.type = 'button';
-    chip.innerHTML = `<span class="joint-order-num">${idx+1}</span>${j.label}`;
-    chip.addEventListener('click', () => {
-      if(litJoints.has(j.name)) litJoints.delete(j.name); else litJoints.add(j.name);
-      pausePlayback();
-      playIndex = j.pathIndex;
-      renderStep(j.pathIndex);
-      renderJointOrder();
-      renderJointInspect();
-    });
-    row.appendChild(chip);
-  });
 }
 function renderJointInspect(){
   const panel = document.getElementById('jointInspectPanel');
@@ -1914,11 +1964,12 @@ function renderJointInspect(){
   }
   panel.classList.add('show');
   panel.innerHTML = [...litJoints].map(name => {
-    const label = TRACK_POINT_LABEL[name];
+    const label = pointLabel(name);
+    const color = litJointColors[name] || '#00E5C7';
     const notes = buildPointInsight(name, analysis.refFrames, analysis.stuFrames, analysis.path);
     const notesHtml = notes.map(msg => `<div class="correction-msg">${msg}</div>`).join('');
     return `<div class="correction-item">
-      <span class="correction-dot" style="background:#00E5C7"></span>
+      <span class="correction-dot" style="background:${color}"></span>
       <div><div class="correction-label">${label}</div>${notesHtml}</div>
     </div>`;
   }).join('');
@@ -1933,13 +1984,13 @@ async function renderStep(idx){
   refCtx.clearRect(0,0,refCanvas.width, refCanvas.height);
   refCtx.drawImage(refPlayerVideo, 0,0, refCanvas.width, refCanvas.height);
   drawSkeleton(refCtx, refF.landmarks, null, refCanvas.width, refCanvas.height, true);
-  drawJointBadges(refCtx, refF.landmarks, refCanvas.width, refCanvas.height, analysis.jointOrder);
+  drawJointBadges(refCtx, refF.landmarks, refCanvas.width, refCanvas.height);
 
   await seekTo(stuPlayerVideo, stuF.t);
   stuCtx.clearRect(0,0,stuCanvas.width, stuCanvas.height);
   stuCtx.drawImage(stuPlayerVideo, 0,0, stuCanvas.width, stuCanvas.height);
   drawSkeleton(stuCtx, stuF.landmarks, analysis.perStepDeviation[idx], stuCanvas.width, stuCanvas.height, false);
-  drawJointBadges(stuCtx, stuF.landmarks, stuCanvas.width, stuCanvas.height, analysis.jointOrder);
+  drawJointBadges(stuCtx, stuF.landmarks, stuCanvas.width, stuCanvas.height);
 
   if(zoomedSide){
     const src = zoomedSide === 'ref' ? refCanvas : stuCanvas;
